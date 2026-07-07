@@ -78,7 +78,7 @@
 
 ## 5. 현재 레포를 어떻게 취급할지
 
-현재 `/Users/mac/Desktop/Coding/_aipbl` 는 **작업용 통합 워크스페이스**로 유지하는 편이 가장 안전하다.
+현재 `/Users/mac/Desktop/Coding/_aipbl` 는 **작업용 통합 워크스페이스**이자 **local-only meta repo** 로 유지하는 편이 가장 안전하다.
 
 즉, 이 저장소는 다음 역할만 담당한다.
 
@@ -88,6 +88,12 @@
 - 여러 저장소 내용을 한 번에 바라보는 로컬 작업 공간
 
 실제 canonical source of truth 는 각 분리된 원격 저장소가 된다.
+
+정리 원칙:
+
+- 이 workspace 의 `origin` 은 제거한다.
+- 이 workspace 는 특정 서비스 repo 의 upstream 으로 사용하지 않는다.
+- 필요하면 로컬에서만 meta commit 을 남긴다.
 
 ## 6. 운영 규칙
 
