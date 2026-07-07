@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0.0",
+  "eventType": "ae.feature.detected",
+  "eventId": "evt-20260707-0001",
+  "traceId": "trc-20260707-0001",
+  "source": {
+    "account": "iot",
+    "service": "iot-rule",
+    "deviceId": "esp32-01"
+  },
+  "occurredAt": "2026-07-07T07:00:00.000Z",
+  "sentAt": "2026-07-07T07:00:00.120Z",
+  "payload": {
+    "siteId": "yard-a",
+    "berthId": "berth-01",
+    "lineId": "mooring-03",
+    "windowMs": 500,
+    "sampleRateHz": 20000,
+    "sequenceNo": 4182,
+    "features": {
+      "rms": 0.18,
+      "peakAmplitude": 0.76,
+      "energy": 14.2,
+      "dominantFrequencyHz": 4230,
+      "riseTimeMs": 8.4,
+      "durationMs": 41.0
+    },
+    "context": {
+      "materialType": "synthetic-rope",
+      "tensionEstimateKn": 145,
+      "temperatureC": 26.1,
+      "humidityPct": 78
+    },
+    "rawObjectKey": "raw/yard-a/berth-01/mooring-03/2026/07/07/evt-20260707-0001.bin"
+  }
+}

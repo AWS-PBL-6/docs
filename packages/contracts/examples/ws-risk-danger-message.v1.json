@@ -1,0 +1,29 @@
+{
+  "type": "risk.danger.detected",
+  "version": "1.0.0",
+  "traceId": "trc-20260707-0001",
+  "sentAt": "2026-07-07T07:00:01.220Z",
+  "data": {
+    "lineId": "mooring-03",
+    "riskLevel": "DANGER",
+    "riskScore": 0.962,
+    "snapbackZone": {
+      "radiusMeters": 18.4,
+      "polygon": [
+        {
+          "x": 132.4,
+          "y": 84.2
+        },
+        {
+          "x": 171.6,
+          "y": 95.7
+        },
+        {
+          "x": 158.1,
+          "y": 131.8
+        }
+      ]
+    },
+    "alertMessage": "3번 계류삭 파단 위험. 표시된 위험구역 밖으로 즉시 대피하십시오."
+  }
+}

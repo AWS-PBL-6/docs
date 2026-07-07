@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "InferenceResponseV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "traceId",
+    "riskLevel",
+    "riskScore",
+    "classProbabilities",
+    "modelVersion",
+    "inferenceMs"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "traceId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "riskLevel": {
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "CAUTION",
+        "DANGER"
+      ]
+    },
+    "riskScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "classProbabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "NORMAL",
+        "CAUTION",
+        "DANGER"
+      ],
+      "properties": {
+        "NORMAL": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "CAUTION": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "DANGER": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "modelVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "inferenceMs": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}

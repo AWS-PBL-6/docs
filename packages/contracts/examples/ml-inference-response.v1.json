@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0.0",
+  "requestId": "req-20260707-0001",
+  "traceId": "trc-20260707-0001",
+  "riskLevel": "DANGER",
+  "riskScore": 0.962,
+  "classProbabilities": {
+    "NORMAL": 0.012,
+    "CAUTION": 0.026,
+    "DANGER": 0.962
+  },
+  "modelVersion": "ae-model-v3",
+  "inferenceMs": 42
+}

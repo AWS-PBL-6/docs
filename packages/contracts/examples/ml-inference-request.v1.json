@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0.0",
+  "requestId": "req-20260707-0001",
+  "traceId": "trc-20260707-0001",
+  "eventId": "evt-20260707-0001",
+  "modelInput": {
+    "peakAmplitude": 0.76,
+    "energy": 14.2,
+    "dominantFrequencyHz": 4230,
+    "riseTimeMs": 8.4,
+    "durationMs": 41.0,
+    "tensionEstimateKn": 145,
+    "temperatureC": 26.1,
+    "humidityPct": 78
+  }
+}

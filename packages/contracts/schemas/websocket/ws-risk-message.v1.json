@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WebSocketRiskMessageV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "version",
+    "traceId",
+    "sentAt",
+    "data"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "line.status.updated",
+        "risk.caution.detected",
+        "risk.danger.detected",
+        "snapback.zone.updated",
+        "alert.sent",
+        "device.offline"
+      ]
+    },
+    "version": {
+      "const": "1.0.0"
+    },
+    "traceId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sentAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lineId",
+        "riskLevel",
+        "riskScore"
+      ],
+      "properties": {
+        "lineId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "riskLevel": {
+          "type": "string",
+          "enum": [
+            "NORMAL",
+            "CAUTION",
+            "DANGER"
+          ]
+        },
+        "riskScore": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "snapbackZone": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "radiusMeters",
+            "polygon"
+          ],
+          "properties": {
+            "radiusMeters": {
+              "type": "number",
+              "minimum": 0
+            },
+            "polygon": {
+              "type": "array",
+              "minItems": 3,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "x",
+                  "y"
+                ],
+                "properties": {
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "alertMessage": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

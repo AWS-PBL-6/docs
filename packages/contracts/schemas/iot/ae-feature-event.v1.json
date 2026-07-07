@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AeFeatureEventV1",
+  "allOf": [
+    {
+      "$ref": "../common/event-envelope.v1.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": {
+          "const": "ae.feature.detected"
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "siteId",
+            "berthId",
+            "lineId",
+            "windowMs",
+            "sampleRateHz",
+            "sequenceNo",
+            "features",
+            "context"
+          ],
+          "properties": {
+            "siteId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "berthId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "lineId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "windowMs": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "sampleRateHz": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "sequenceNo": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "features": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "rms",
+                "peakAmplitude",
+                "energy",
+                "dominantFrequencyHz",
+                "riseTimeMs",
+                "durationMs"
+              ],
+              "properties": {
+                "rms": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "peakAmplitude": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "energy": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "dominantFrequencyHz": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "riseTimeMs": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "durationMs": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            },
+            "context": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "materialType",
+                "tensionEstimateKn",
+                "temperatureC",
+                "humidityPct"
+              ],
+              "properties": {
+                "materialType": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "tensionEstimateKn": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "temperatureC": {
+                  "type": "number"
+                },
+                "humidityPct": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 100
+                }
+              }
+            },
+            "rawObjectKey": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  ]
+}

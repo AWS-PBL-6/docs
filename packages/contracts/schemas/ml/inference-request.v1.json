@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "InferenceRequestV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "traceId",
+    "eventId",
+    "modelInput"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "traceId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "eventId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "modelInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "peakAmplitude",
+        "energy",
+        "dominantFrequencyHz",
+        "riseTimeMs",
+        "durationMs",
+        "tensionEstimateKn",
+        "temperatureC",
+        "humidityPct"
+      ],
+      "properties": {
+        "peakAmplitude": {
+          "type": "number",
+          "minimum": 0
+        },
+        "energy": {
+          "type": "number",
+          "minimum": 0
+        },
+        "dominantFrequencyHz": {
+          "type": "number",
+          "minimum": 0
+        },
+        "riseTimeMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "durationMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tensionEstimateKn": {
+          "type": "number",
+          "minimum": 0
+        },
+        "temperatureC": {
+          "type": "number"
+        },
+        "humidityPct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    }
+  }
+}
