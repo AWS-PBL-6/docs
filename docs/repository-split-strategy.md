@@ -31,11 +31,11 @@
 
 | 저장소 역할 | 권장 GitHub repo | 현재 디렉토리 |
 | --- | --- | --- |
-| Frontend | `AWS-PBL-6/Frontend` | `apps/web-dashboard` |
-| Backend | `AWS-PBL-6/Backend` | `backend/application-api`, `infra/application-account` |
-| Edge / IoT | `AWS-PBL-6/Edge-IoT` | `edge/esp32-firmware`, `edge/publisher-simulator`, `infra/iot-account` |
-| ML / AI | `AWS-PBL-6/ML` | `ml/training-pipeline`, `ml/endpoint-runtime`, `ml/prompt-assets`, `infra/ml-account` |
-| Docs / Contracts | `AWS-PBL-6/docs` | `docs`, `packages/contracts` |
+| Frontend | `AWS-PBL-6/Frontend` | `frontend` |
+| Backend | `AWS-PBL-6/Backend` | `backend` |
+| Edge / IoT | `AWS-PBL-6/Edge-IoT` | `edge-iot` |
+| ML / AI | `AWS-PBL-6/ML` | `ml` |
+| Docs / Contracts | `AWS-PBL-6/docs` | `docs` |
 
 ### 3.2. 선택적으로 나중에 분리할 저장소
 
@@ -149,6 +149,6 @@ Docs: https://github.com/AWS-PBL-6/docs.git
 
 ## 10. 주의사항
 
-- 지금 `Frontend` 원격에는 전체 구조가 한 번 올라간 상태이므로, 장기적으로는 프론트 repo를 `apps/web-dashboard` 전용 내용으로 정리하는 편이 맞다.
+- 현재 로컬 워크스페이스는 분리된 repo root 와 동일한 top-level 디렉토리(`frontend`, `backend`, `edge-iot`, `ml`, `docs`) 기준으로 정리한다.
 - 원격 내용을 정리할지, 새 repo로 다시 시작할지는 사용자가 결정해야 한다.
 - 내가 이후에 분리 push를 수행하면, 각 repo는 현재 워크스페이스의 일부만 담게 된다.

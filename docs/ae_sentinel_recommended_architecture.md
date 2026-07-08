@@ -1,19 +1,26 @@
 # AE-Sentinel 권장 AWS 전체 아키텍처
 
 > 음향 방출(AE) 기반 계류삭 파단 예측 및 스냅백 위험구역 관제 시스템  
-> 기준: **3인 팀 · 3개 AWS 계정 · React 서버리스 웹 · IoT 이벤트 기반 추론 · SageMaker ML**
+> 기준: **3인 팀 · 단일 팀 AWS 계정 · React 서버리스 웹 · IoT 이벤트 기반 추론 · SageMaker ML**
 
 ---
 
-## 1. 권장 계정 분리
+## 1. 계정 구성 및 도메인 분리
 
-| AWS 계정 | 담당 | 핵심 서비스 |
+> **변경 (2026-07):** 초기 설계는 도메인별로 AWS 계정을 3개(Account A/B/C)로 분리하는
+> 안이었으나, 실제 운영에서는 IoT · 백엔드 · ML 개발이 **하나의 공용 팀 계정**을 사용하도록
+> 부여되었다. 따라서 아래 구분은 *계정 경계*가 아니라 **동일 계정 내 논리적 도메인(소유권)
+> 경계**로 해석한다. 도메인 간 격리는 IAM 역할 · 리소스 태그 · 네이밍 규칙으로 달성한다.
+
+| 도메인 | 담당 | 핵심 서비스 |
 |---|---|---|
-| **Account A — Application / Full-stack** | 김태훈 | Amplify Hosting, Cognito, API Gateway, Lambda, DynamoDB, SNS, CloudWatch |
-| **Account B — Edge / IoT** | 김세엽 | AWS IoT Core, IoT Rule, S3 센서 데이터, SQS DLQ |
-| **Account C — ML / AI** | 서강재 | SageMaker Pipeline, Training, Model Registry, Endpoint, Bedrock, ML 데이터 S3 |
+| **Application / Full-stack** | 김태훈 | Amplify Hosting, Cognito, API Gateway, Lambda, DynamoDB, SNS, CloudWatch |
+| **Edge / IoT** | 김세엽 | AWS IoT Core, IoT Rule, S3 센서 데이터, SQS DLQ |
+| **ML / AI** | 서강재 | SageMaker Pipeline, Training, Model Registry, Endpoint, Bedrock, ML 데이터 S3 |
 
-> 계정은 분리하되, 서비스 런타임의 중심은 **Account A의 Application Backend**로 둔다.
+> 모든 도메인은 단일 팀 계정에서 운영되며, 서비스 런타임의 중심은 **Application Backend**로
+> 둔다. 교차 계정 연동(STS AssumeRole, cross-account invoke, 계정 간 버킷/이벤트버스 정책)은
+> 더 이상 필요 없으며, 동일 계정 내 IAM 권한으로 대체한다.
 
 ---
 
@@ -38,9 +45,9 @@ flowchart LR
     end
 
     %% =========================================================
-    %% ACCOUNT B - IOT
+    %% DOMAIN - IOT (단일 팀 계정 내)
     %% =========================================================
-    subgraph IOTACC["AWS Account B — Edge / IoT"]
+    subgraph IOTACC["Edge / IoT 도메인"]
         direction TB
 
         IOTCORE["AWS IoT Core<br/>MQTT Broker<br/>X.509 Device Authentication"]
@@ -58,9 +65,9 @@ flowchart LR
     ESP32 -->|"MQTT over TLS<br/>AE Feature Event"| IOTCORE
 
     %% =========================================================
-    %% ACCOUNT A - APPLICATION
+    %% DOMAIN - APPLICATION (단일 팀 계정 내)
     %% =========================================================
-    subgraph APPACC["AWS Account A — Full-stack Application / Runtime"]
+    subgraph APPACC["Full-stack Application / Runtime 도메인"]
         direction TB
 
         subgraph WEB["Serverless Web Application"]
@@ -111,13 +118,13 @@ flowchart LR
         WSLAMBDA -.-> APPCW
     end
 
-    %% Cross-account IoT ingestion
-    IOTRULE -->|"Cross-account Invoke<br/>Lambda Resource Policy"| INGEST
+    %% IoT ingestion (동일 계정 invoke)
+    IOTRULE -->|"Same-account Invoke<br/>Lambda Permission"| INGEST
 
     %% =========================================================
-    %% ACCOUNT C - ML
+    %% DOMAIN - ML (단일 팀 계정 내)
     %% =========================================================
-    subgraph MLACC["AWS Account C — ML / AI"]
+    subgraph MLACC["ML / AI 도메인"]
         direction TB
 
         subgraph TRAINING["Model Training & MLOps"]
@@ -153,16 +160,16 @@ flowchart LR
         MONITOR -.-> MLCW
     end
 
-    %% Cross-account inference
-    ORCH -->|"STS AssumeRole<br/>sagemaker:InvokeEndpoint"| ENDPOINT
+    %% Inference (동일 계정 IAM)
+    ORCH -->|"sagemaker:InvokeEndpoint<br/>(동일 계정 IAM 역할)"| ENDPOINT
     ENDPOINT -->|"Prediction JSON"| ORCH
 
     %% Bedrock is used only after deterministic physics calculation
     PHYSICS -->|"결정론적 계산 결과"| BEDROCK
     BEDROCK -->|"경보 문장"| ALERT
 
-    %% Cross-account training data sharing
-    IOTS3 -.->|"S3 Bucket Policy<br/>KMS Key Policy"| MLS3
+    %% Training data sharing (동일 계정)
+    IOTS3 -.->|"S3 접근<br/>(동일 계정 IAM 정책)"| MLS3
 
     %% Deployment event
     REGISTRY -.->|"Model Approval Event"| EVENTBRIDGE
@@ -227,11 +234,11 @@ sequenceDiagram
     Sensor->>ESP32: 진동 신호
     ESP32->>ESP32: Windowing / FFT / Feature Extraction
     ESP32->>IoT: MQTT Publish (AE Feature Event)
-    IoT->>Ingest: IoT Rule Cross-account Invoke
+    IoT->>Ingest: IoT Rule Invoke (동일 계정)
     Ingest->>Ingest: Schema / Range / Duplicate Validation
     Ingest->>Orchestrator: Validated Feature Event
 
-    Orchestrator->>SM: STS AssumeRole + InvokeEndpoint
+    Orchestrator->>SM: InvokeEndpoint (동일 계정 IAM)
     SM-->>Orchestrator: Risk Prediction
 
     alt NORMAL
@@ -386,15 +393,17 @@ flowchart LR
 
 ---
 
-# 7. 계정 간 연동 방식
+# 7. 도메인 간 연동 방식 (단일 계정)
+
+> 모든 리소스가 같은 팀 계정에 있으므로 교차 계정 신뢰관계 없이 동일 계정 IAM 역할·정책으로 연동한다.
 
 | 출발 | 대상 | 연동 방식 |
 |---|---|---|
 | Amplify React | API Gateway | HTTPS REST/WebSocket + Cognito JWT |
-| IoT Core Account | Application Lambda | IoT Rule + Lambda Resource Policy |
-| Application Lambda | SageMaker Endpoint | STS AssumeRole + `sagemaker:InvokeEndpoint` |
-| IoT S3 | ML SageMaker Role | S3 Bucket Policy + 필요 시 KMS Key Policy |
-| Model Registry | Application Account | EventBridge Cross-account Event Bus |
+| IoT Core | Application Lambda | IoT Rule + Lambda Permission (동일 계정) |
+| Application Lambda | SageMaker Endpoint | `sagemaker:InvokeEndpoint` (동일 계정 IAM 역할) |
+| IoT S3 | ML SageMaker Role | S3 IAM 정책 (동일 계정; 필요 시 KMS Key 정책) |
+| Model Registry | Application | EventBridge (동일 계정 이벤트 버스) |
 | CloudWatch Alarm | 운영 이벤트 처리 | EventBridge 또는 SNS |
 
 ---
@@ -514,11 +523,11 @@ flowchart LR
 3. Model Registry 승인 자동화
 4. Bedrock 경보문 생성
 5. SageMaker Data Capture / Model Monitor
-6. Cross-account EventBridge
+6. EventBridge 기반 배포 이벤트 연동 (동일 계정)
 7. SQS DLQ 및 재처리
 
 ---
 
 # 11. 발표용 핵심 설명
 
-> 현장의 압전 센서 신호는 ESP32에서 FFT와 특징 추출을 거친 뒤 MQTT로 AWS IoT Core에 전달됩니다. IoT Rule은 Application 계정의 서버리스 백엔드를 호출하며, Lambda가 ML 계정의 SageMaker Endpoint를 교차 계정 권한으로 호출해 정상·주의·위험을 분류합니다. 위험 판정 시 결정론적 물리 엔진이 스냅백 위험구역을 계산하고, Bedrock은 계산값을 변경하지 않은 채 현장용 경보문만 생성합니다. 결과는 DynamoDB에 저장되고 SNS와 WebSocket을 통해 작업자 및 React 관제 대시보드로 실시간 전파됩니다.
+> 현장의 압전 센서 신호는 ESP32에서 FFT와 특징 추출을 거친 뒤 MQTT로 AWS IoT Core에 전달됩니다. IoT Rule은 같은 팀 계정의 서버리스 백엔드를 호출하며, Lambda가 동일 계정의 SageMaker Endpoint를 호출해 정상·주의·위험을 분류합니다. 위험 판정 시 결정론적 물리 엔진이 스냅백 위험구역을 계산하고, Bedrock은 계산값을 변경하지 않은 채 현장용 경보문만 생성합니다. 결과는 DynamoDB에 저장되고 SNS와 WebSocket을 통해 작업자 및 React 관제 대시보드로 실시간 전파됩니다.

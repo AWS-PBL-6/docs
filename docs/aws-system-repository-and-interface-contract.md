@@ -2,13 +2,13 @@
 
 > 기준 문서:
 >
-> - [ae_sentinel_recommended_architecture.md](/Users/mac/Desktop/Coding/_aipbl/docs/ae_sentinel_recommended_architecture.md)
-> - [pnu-cloud-ai-pbl-proposal-parsed.md](/Users/mac/Desktop/Coding/_aipbl/docs/pnu-cloud-ai-pbl-proposal-parsed.md)
+> - [ae_sentinel_recommended_architecture.md](/Users/mac/Desktop/Coding/_aipbl/docs/docs/ae_sentinel_recommended_architecture.md)
+> - [pnu-cloud-ai-pbl-proposal-parsed.md](/Users/mac/Desktop/Coding/_aipbl/docs/docs/pnu-cloud-ai-pbl-proposal-parsed.md)
 
 ## 1. 결정 사항
 
-- 시스템 통합의 중심은 `Account A - Application Account`로 둔다.
-- 프론트엔드, 백엔드, 엣지, ML은 분리 개발하되 `packages/contracts`를 단일 계약 소스로 사용한다.
+- 시스템 통합의 중심은 `Application Backend`로 둔다. (IoT · 백엔드 · ML은 **단일 팀 계정**을 공유하며, 이 구분은 계정 경계가 아니라 동일 계정 내 도메인 경계다.)
+- 프론트엔드, 백엔드, 엣지, ML은 분리 개발하되 `docs/packages/contracts`를 단일 계약 소스로 사용한다.
 - 실시간 경로에는 `feature event`만 올리고, 원시 파형(raw waveform)은 `S3` 적재 경로로 분리한다.
 - `SageMaker Endpoint`는 반드시 `Orchestrator Lambda`만 호출한다.
 - `Bedrock`은 물리 계산을 하지 않고, 결정론적 결과를 설명 문장과 UI 친화 JSON으로 가공하는 역할만 담당한다.
@@ -19,12 +19,14 @@
 
 ```text
 docs/
-  ae_sentinel_recommended_architecture.md
-  pnu-cloud-ai-pbl-proposal-parsed.md
-  aws-system-repository-and-interface-contract.md
-
-apps/
-  web-dashboard/                  # React + Amplify
+  docs/
+    ae_sentinel_recommended_architecture.md
+    pnu-cloud-ai-pbl-proposal-parsed.md
+    aws-system-repository-and-interface-contract.md
+  packages/
+    contracts/
+      schemas/
+      examples/
 
 backend/
   application-api/               # API Gateway + Lambda handlers
@@ -35,30 +37,29 @@ backend/
       clients/
       models/
     tests/
+  infra/
+    application-account/
 
-edge/
+frontend/
+  public/
+  src/
+    app/
+    components/
+    features/
+  tests/
+
+edge-iot/
   esp32-firmware/                # ESP32 sensor sampling, FFT, MQTT publish
   publisher-simulator/           # 발표/로컬 검증용 이벤트 발생기
+  infra/
+    iot-account/
 
 ml/
   training-pipeline/             # SageMaker processing/training/registry
   endpoint-runtime/              # inference container/entrypoint spec
   prompt-assets/                 # Bedrock prompt templates
-
-packages/
-  contracts/
-    schemas/
-      common/
-      iot/
-      ml/
-      app/
-      websocket/
-    examples/
-
-infra/
-  application-account/           # Amplify, API GW, Lambda, DynamoDB, Cognito, SNS
-  iot-account/                   # IoT Core, IoT Rule, device policy, raw S3
-  ml-account/                    # SageMaker, model registry, endpoint, ML S3
+  infra/
+    ml-account/
 
 scripts/
   dev/
@@ -69,10 +70,10 @@ scripts/
 
 | 팀원 | 주 소유 디렉토리 | 책임 범위 |
 | --- | --- | --- |
-| 김태훈 | `apps/web-dashboard`, `backend/application-api`, `infra/application-account` | React, Amplify, API Gateway, Lambda API, DynamoDB, Cognito, SNS, 실시간 UI |
-| 김세엽 | `edge/esp32-firmware`, `edge/publisher-simulator`, `infra/iot-account` | 센서 샘플링, FFT/특징 추출, MQTT publish, IoT Core/Rule |
-| 서강재 | `ml/training-pipeline`, `ml/endpoint-runtime`, `ml/prompt-assets`, `infra/ml-account` | SageMaker 학습·배포, 모델 규격, 물리 엔진 입력 규격, Bedrock 프롬프트 |
-| 공통 | `packages/contracts`, `docs` | JSON Schema, 예제 payload, 인터페이스 합의 문서 |
+| 김태훈 | `frontend`, `backend/application-api`, `backend/infra/application-account` | React, Amplify, API Gateway, Lambda API, DynamoDB, Cognito, SNS, 실시간 UI |
+| 김세엽 | `edge-iot/esp32-firmware`, `edge-iot/publisher-simulator`, `edge-iot/infra/iot-account` | 센서 샘플링, FFT/특징 추출, MQTT publish, IoT Core/Rule |
+| 서강재 | `ml/training-pipeline`, `ml/endpoint-runtime`, `ml/prompt-assets`, `ml/infra/ml-account` | SageMaker 학습·배포, 모델 규격, 물리 엔진 입력 규격, Bedrock 프롬프트 |
+| 공통 | `docs/packages/contracts`, `docs/docs` | JSON Schema, 예제 payload, 인터페이스 합의 문서 |
 
 ## 4. 인터페이스 원칙
 
@@ -108,9 +109,9 @@ IoT -> Backend, Backend 내부 이벤트, WebSocket 메시지는 공통 envelope
 
 ### 6.1. 전달 방식
 
-- `AWS IoT Rule`이 `Account A`의 `Ingestion Lambda`를 cross-account invoke 한다.
+- `AWS IoT Rule`이 `Ingestion Lambda`를 동일 계정 invoke 한다 (Lambda Permission).
 - 실시간 경로에는 `features` 중심 payload만 전달한다.
-- 원시 센서 버퍼는 필요 시 `Account B S3`에 보관하고, payload에는 `rawObjectKey`만 남긴다.
+- 원시 센서 버퍼는 필요 시 `IoT 도메인 S3`에 보관하고, payload에는 `rawObjectKey`만 남긴다.
 
 ### 6.2. Payload 스키마
 
@@ -340,7 +341,7 @@ IoT -> Backend, Backend 내부 이벤트, WebSocket 메시지는 공통 envelope
 - `alert.sent`
 - `device.offline`
 
-## 10. `packages/contracts`에 먼저 고정할 파일
+## 10. `docs/packages/contracts`에 먼저 고정할 파일
 
 1주차에 아래 스키마부터 먼저 고정하는 것을 권장한다.
 
@@ -353,12 +354,12 @@ IoT -> Backend, Backend 내부 이벤트, WebSocket 메시지는 공통 envelope
 - `schemas/app/event-detail.v1.json`
 - `schemas/websocket/ws-risk-message.v1.json`
 
-예제 payload는 `packages/contracts/examples`에 저장한다.
+예제 payload는 `docs/packages/contracts/examples`에 저장한다.
 
 ## 11. 구현 우선순위
 
-1. `packages/contracts` 스키마와 example JSON부터 확정한다.
-2. `edge/publisher-simulator`로 IoT payload를 먼저 재현한다.
+1. `docs/packages/contracts` 스키마와 example JSON부터 확정한다.
+2. `edge-iot/publisher-simulator`로 IoT payload를 먼저 재현한다.
 3. `backend/application-api`에서 `Ingestion -> Orchestrator -> SageMaker` 최소 경로를 붙인다.
 4. `DynamoDB` 저장 스키마와 `GET /v1/lines`, `GET /v1/events`를 구현한다.
 5. 이후 `WebSocket`, `SNS`, `Bedrock`, `Cognito`를 순차적으로 붙인다.
