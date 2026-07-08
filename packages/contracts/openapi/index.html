@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AE-Sentinel REST API · Swagger UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <style>
+    body{margin:0}
+    #hint{font-family:system-ui,-apple-system,sans-serif;background:#fff8e1;border-bottom:1px solid #f0e0a0;
+      color:#7a5b00;padding:10px 16px;font-size:13px;display:none}
+    #hint code{background:#00000010;padding:1px 6px;border-radius:4px}
+  </style>
+</head>
+<body>
+  <div id="hint">
+    로컬 <code>file://</code>로 열면 브라우저가 YAML fetch를 막을 수 있습니다.
+    이 디렉토리에서 <code>python3 -m http.server 8080</code> 실행 후
+    <code>http://localhost:8080/</code> 로 열거나, YAML을
+    <a href="https://editor.swagger.io" target="_blank" rel="noopener">editor.swagger.io</a> 에 붙여넣으세요.
+  </div>
+  <div id="swagger"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script>
+    if (location.protocol === "file:") document.getElementById("hint").style.display = "block";
+    window.ui = SwaggerUIBundle({
+      url: "./ae-sentinel-rest.v1.yaml",
+      dom_id: "#swagger",
+      deepLinking: true,
+      presets: [SwaggerUIBundle.presets.apis],
+      layout: "BaseLayout"
+    });
+  </script>
+</body>
+</html>

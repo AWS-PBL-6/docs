@@ -1,0 +1,837 @@
+openapi: 3.0.3
+info:
+  title: AE-Sentinel Application REST API
+  version: "1.1.0"
+  description: |
+    AE-Sentinel 관제 백엔드의 REST API (`/v1`).
+
+    - 모든 응답은 공통 envelope를 따른다: `{ requestId, timestamp, data, error }`.
+    - 성공 시 `error: null`, 실패 시 `data: null` + `error: { code, message }`.
+    - enum(위험도)은 대문자: `NORMAL` / `CAUTION` / `DANGER`.
+    - 시간은 UTC ISO 8601 (ms) 문자열.
+
+    **선박(Vessel) 중심 모델**: AE 센서는 **선박의 계류삭 볼라드**에 부착된다. 각
+    계류삭(Line)은 `vesselId`로 선박에 연결되고, 대시보드 지도는 선박 위치에 마커로
+    표시된다.
+
+    **CRUD**: 선박(Vessels)·계류삭(Lines)·이벤트(Events)는 생성/수정/삭제가 가능하고,
+    경보(Alerts)는 조회/삭제가 가능하다. 생성/수정/삭제는 저장소만 조작하며 ML
+    파이프라인을 돌리지 않는다(실추론은 IoT 수집 경로를 통한다).
+
+    **문서**: 이 스펙은 배포 도메인의 `GET /docs`(Swagger UI)와 `GET /openapi.yaml`
+    로도 제공된다.
+
+    **인증**: 모든 `/v1` 경로는 Cognito **JWT Bearer** 토큰(ID token)이 필요하다.
+    `/docs`와 `/openapi.yaml`만 공개다. Swagger UI 우측 상단 **Authorize**에 ID 토큰을
+    넣고 호출한다.
+  contact:
+    name: AE-Sentinel Application 팀
+
+servers:
+  - url: https://95jmuk33ul.execute-api.ap-northeast-2.amazonaws.com
+    description: 배포 환경 (ap-northeast-2, stack ae-sentinel-app)
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Lines
+    description: 계류삭(홋줄) 상태 - 생성/조회/수정/삭제
+  - name: Events
+    description: 위험/주의 이벤트 - 생성/조회/수정/삭제/확인
+  - name: Dashboard
+    description: 대시보드 요약 통계
+  - name: Alerts
+    description: 경보 - 조회/삭제/테스트 발송
+  - name: Vessels
+    description: 선박 - 생성/조회/수정/삭제 (센서가 부착된 계류삭의 소속 선박)
+
+paths:
+  /v1/lines:
+    get:
+      tags: [Lines]
+      summary: 전체 계류삭 최신 상태 조회
+      operationId: listLines
+      responses:
+        "200":
+          description: 라인 목록
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LinesResponse" }
+    post:
+      tags: [Lines]
+      summary: 계류삭 생성
+      operationId: createLine
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LineCreate" }
+      responses:
+        "201":
+          description: 생성된 라인
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LineResponse" }
+        "400":
+          description: 유효성 오류 (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: 이미 존재 (`ALREADY_EXISTS`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /v1/lines/{lineId}:
+    get:
+      tags: [Lines]
+      summary: 특정 계류삭 상세 상태 조회
+      operationId: getLine
+      parameters: [{ $ref: "#/components/parameters/LineId" }]
+      responses:
+        "200":
+          description: 라인 상세
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LineResponse" }
+        "404":
+          description: 라인 없음 (`LINE_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    put:
+      tags: [Lines]
+      summary: 계류삭 수정 (부분 수정 허용)
+      operationId: updateLine
+      parameters: [{ $ref: "#/components/parameters/LineId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LineUpdate" }
+      responses:
+        "200":
+          description: 수정된 라인
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LineResponse" }
+        "404":
+          description: 라인 없음 (`LINE_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [Lines]
+      summary: 계류삭 삭제
+      operationId: deleteLine
+      parameters: [{ $ref: "#/components/parameters/LineId" }]
+      responses:
+        "200":
+          description: 삭제 결과
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeleteResponse" }
+        "404":
+          description: 라인 없음 (`LINE_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /v1/events:
+    get:
+      tags: [Events]
+      summary: 이벤트 이력 조회
+      operationId: listEvents
+      parameters:
+        - name: lineId
+          in: query
+          required: false
+          schema: { type: string }
+          description: 특정 라인으로 필터
+        - name: riskLevel
+          in: query
+          required: false
+          schema: { $ref: "#/components/schemas/RiskLevel" }
+          description: 위험도로 필터
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+      responses:
+        "200":
+          description: 이벤트 목록 (최신순)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventsResponse" }
+        "400":
+          description: 잘못된 riskLevel 등 (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    post:
+      tags: [Events]
+      summary: 이벤트 수동 생성 (파이프라인 미실행)
+      operationId: createEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventCreate" }
+      responses:
+        "201":
+          description: 생성된 이벤트
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventResponse" }
+        "400":
+          description: 유효성 오류 (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: 이미 존재 (`ALREADY_EXISTS`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /v1/events/{eventId}:
+    get:
+      tags: [Events]
+      summary: 이벤트 상세 조회
+      operationId: getEvent
+      parameters: [{ $ref: "#/components/parameters/EventId" }]
+      responses:
+        "200":
+          description: 이벤트 상세
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventResponse" }
+        "404":
+          description: 이벤트 없음 (`EVENT_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    put:
+      tags: [Events]
+      summary: 이벤트 수정 (부분 수정 허용)
+      operationId: updateEvent
+      parameters: [{ $ref: "#/components/parameters/EventId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventUpdate" }
+      responses:
+        "200":
+          description: 수정된 이벤트
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventResponse" }
+        "404":
+          description: 이벤트 없음 (`EVENT_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [Events]
+      summary: 이벤트 삭제
+      operationId: deleteEvent
+      parameters: [{ $ref: "#/components/parameters/EventId" }]
+      responses:
+        "200":
+          description: 삭제 결과
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeleteResponse" }
+        "404":
+          description: 이벤트 없음 (`EVENT_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /v1/events/{eventId}/ack:
+    post:
+      tags: [Events]
+      summary: 경보 확인(Ack) 처리
+      operationId: ackEvent
+      parameters: [{ $ref: "#/components/parameters/EventId" }]
+      responses:
+        "201":
+          description: 확인 처리된 이벤트
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventResponse" }
+        "404":
+          description: 이벤트 없음 (`EVENT_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /v1/dashboard/summary:
+    get:
+      tags: [Dashboard]
+      summary: 대시보드 요약 통계
+      operationId: getDashboardSummary
+      responses:
+        "200":
+          description: 요약 통계 + 최근 이벤트
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SummaryResponse" }
+
+  /v1/alerts:
+    get:
+      tags: [Alerts]
+      summary: 경보 이력 조회
+      operationId: listAlerts
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 50, minimum: 1, maximum: 200 }
+      responses:
+        "200":
+          description: 경보 목록 (최신순)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertsResponse" }
+
+  /v1/alerts/{alertId}:
+    get:
+      tags: [Alerts]
+      summary: 경보 상세 조회
+      operationId: getAlert
+      parameters: [{ $ref: "#/components/parameters/AlertId" }]
+      responses:
+        "200":
+          description: 경보 상세
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertResponse" }
+        "404":
+          description: 경보 없음 (`ALERT_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [Alerts]
+      summary: 경보 삭제
+      operationId: deleteAlert
+      parameters: [{ $ref: "#/components/parameters/AlertId" }]
+      responses:
+        "200":
+          description: 삭제 결과
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeleteResponse" }
+        "404":
+          description: 경보 없음 (`ALERT_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /v1/alerts/test:
+    post:
+      tags: [Alerts]
+      summary: 테스트 경보 발생 (SNS 발송 + WebSocket 브로드캐스트)
+      operationId: sendTestAlert
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lineId: { type: string, description: 대상 라인. 생략 시 첫 번째 라인 }
+              example: { lineId: "mooring-03" }
+      responses:
+        "201":
+          description: 생성된 테스트 경보
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertResponse" }
+        "404":
+          description: 대상 라인 없음 (`LINE_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /v1/vessels:
+    get:
+      tags: [Vessels]
+      summary: 전체 선박 조회
+      operationId: listVessels
+      responses:
+        "200":
+          description: 선박 목록
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VesselsResponse" }
+    post:
+      tags: [Vessels]
+      summary: 선박 생성
+      operationId: createVessel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VesselCreate" }
+      responses:
+        "201":
+          description: 생성된 선박
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VesselResponse" }
+        "400":
+          description: 유효성 오류 (`VALIDATION_ERROR`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: 이미 존재 (`ALREADY_EXISTS`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /v1/vessels/{vesselId}:
+    get:
+      tags: [Vessels]
+      summary: 선박 상세 조회
+      operationId: getVessel
+      parameters: [{ $ref: "#/components/parameters/VesselId" }]
+      responses:
+        "200":
+          description: 선박 상세
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VesselResponse" }
+        "404":
+          description: 선박 없음 (`VESSEL_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    put:
+      tags: [Vessels]
+      summary: 선박 수정 (부분 수정 허용)
+      operationId: updateVessel
+      parameters: [{ $ref: "#/components/parameters/VesselId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VesselUpdate" }
+      responses:
+        "200":
+          description: 수정된 선박
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VesselResponse" }
+        "404":
+          description: 선박 없음 (`VESSEL_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [Vessels]
+      summary: 선박 삭제
+      operationId: deleteVessel
+      parameters: [{ $ref: "#/components/parameters/VesselId" }]
+      responses:
+        "200":
+          description: 삭제 결과
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeleteResponse" }
+        "404":
+          description: 선박 없음 (`VESSEL_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Amazon Cognito ID 토큰 (JWT). 헤더 Authorization: Bearer <IdToken>"
+
+  parameters:
+    LineId:
+      name: lineId
+      in: path
+      required: true
+      schema: { type: string }
+      example: mooring-03
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      schema: { type: string }
+      example: evt-20260708-0001
+    AlertId:
+      name: alertId
+      in: path
+      required: true
+      schema: { type: string }
+      example: alr-20260708-2b6d2eff
+    VesselId:
+      name: vesselId
+      in: path
+      required: true
+      schema: { type: string }
+      example: vessel-01
+
+  schemas:
+    RiskLevel:
+      type: string
+      enum: [NORMAL, CAUTION, DANGER]
+
+    Point:
+      type: object
+      required: [x, y]
+      properties:
+        x: { type: number }
+        y: { type: number }
+
+    SnapbackZone:
+      type: object
+      required: [radiusMeters, polygon]
+      properties:
+        radiusMeters: { type: number, minimum: 0, example: 22.2 }
+        polygon:
+          type: array
+          minItems: 3
+          items: { $ref: "#/components/schemas/Point" }
+
+    LineLayout:
+      type: object
+      required: [anchorX, anchorY, headingDeg]
+      properties:
+        anchorX: { type: number }
+        anchorY: { type: number }
+        headingDeg: { type: number }
+
+    ClassProbabilities:
+      type: object
+      required: [NORMAL, CAUTION, DANGER]
+      properties:
+        NORMAL: { type: number, minimum: 0, maximum: 1 }
+        CAUTION: { type: number, minimum: 0, maximum: 1 }
+        DANGER: { type: number, minimum: 0, maximum: 1 }
+
+    LineStatus:
+      type: object
+      required: [lineId, siteId, berthId, riskLevel, riskScore, updatedAt, layout, deviceOnline]
+      properties:
+        lineId: { type: string, example: mooring-03 }
+        siteId: { type: string, example: yard-a }
+        berthId: { type: string, example: berth-01 }
+        riskLevel: { $ref: "#/components/schemas/RiskLevel" }
+        riskScore: { type: number, minimum: 0, maximum: 1, example: 0.89 }
+        updatedAt: { type: string, format: date-time }
+        layout: { $ref: "#/components/schemas/LineLayout" }
+        lastEventId: { type: string, nullable: true }
+        snapbackZone:
+          allOf: [{ $ref: "#/components/schemas/SnapbackZone" }]
+          nullable: true
+        deviceOnline: { type: boolean, example: true }
+        vesselId: { type: string, nullable: true, description: 센서가 달린 계류삭이 속한 선박 }
+
+    EventRecord:
+      type: object
+      required:
+        [eventId, traceId, lineId, siteId, berthId, riskLevel, riskScore,
+         classProbabilities, modelVersion, occurredAt, createdAt, acknowledged]
+      properties:
+        eventId: { type: string, example: evt-20260708-0001 }
+        traceId: { type: string, example: trc-20260708-0001 }
+        lineId: { type: string, example: mooring-03 }
+        siteId: { type: string, example: yard-a }
+        berthId: { type: string, example: berth-01 }
+        riskLevel: { $ref: "#/components/schemas/RiskLevel" }
+        riskScore: { type: number, minimum: 0, maximum: 1, example: 0.89 }
+        classProbabilities: { $ref: "#/components/schemas/ClassProbabilities" }
+        modelVersion: { type: string, example: ae-model-mock-v1 }
+        occurredAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        features:
+          type: object
+          additionalProperties: { type: number }
+          description: AE 특징값 (rms, peakAmplitude, energy, dominantFrequencyHz, riseTimeMs, durationMs)
+        context:
+          type: object
+          description: 재질/장력/환경 컨텍스트 (materialType, tensionEstimateKn, temperatureC, humidityPct)
+        snapbackZone:
+          allOf: [{ $ref: "#/components/schemas/SnapbackZone" }]
+          nullable: true
+        alertMessage: { type: string, nullable: true }
+        acknowledged: { type: boolean }
+        acknowledgedAt: { type: string, format: date-time, nullable: true }
+
+    AlertRecord:
+      type: object
+      required: [alertId, eventId, lineId, riskLevel, message, channel, sentAt, traceId]
+      properties:
+        alertId: { type: string, example: alr-20260708-2b6d2eff }
+        eventId: { type: string }
+        lineId: { type: string, example: mooring-03 }
+        riskLevel: { $ref: "#/components/schemas/RiskLevel" }
+        message: { type: string }
+        channel: { type: string, enum: [SNS, TEST] }
+        sentAt: { type: string, format: date-time }
+        traceId: { type: string }
+        messageId: { type: string, nullable: true }
+
+    DashboardSummary:
+      type: object
+      required: [totalLines, riskCounts, activeDangerEvents, totalEvents, totalAlerts, generatedAt]
+      properties:
+        totalLines: { type: integer, example: 12 }
+        riskCounts:
+          type: object
+          properties:
+            NORMAL: { type: integer }
+            CAUTION: { type: integer }
+            DANGER: { type: integer }
+        activeDangerEvents: { type: integer, example: 1 }
+        totalEvents: { type: integer }
+        totalAlerts: { type: integer }
+        totalVessels: { type: integer }
+        generatedAt: { type: string, format: date-time }
+        recentEvents:
+          type: array
+          items: { $ref: "#/components/schemas/EventRecord" }
+
+    # --- request bodies -----------------------------------------------------
+    LineCreate:
+      type: object
+      required: [lineId, siteId, berthId]
+      properties:
+        lineId: { type: string, example: mooring-05 }
+        siteId: { type: string, example: yard-a }
+        berthId: { type: string, example: berth-01 }
+        layout: { $ref: "#/components/schemas/LineLayout" }
+        riskLevel: { $ref: "#/components/schemas/RiskLevel" }
+        riskScore: { type: number, minimum: 0, maximum: 1 }
+        deviceOnline: { type: boolean }
+        lastEventId: { type: string }
+        snapbackZone: { $ref: "#/components/schemas/SnapbackZone" }
+        vesselId: { type: string }
+
+    LineUpdate:
+      type: object
+      description: 제공된 필드만 갱신 (부분 수정)
+      properties:
+        siteId: { type: string }
+        berthId: { type: string }
+        layout: { $ref: "#/components/schemas/LineLayout" }
+        riskLevel: { $ref: "#/components/schemas/RiskLevel" }
+        riskScore: { type: number, minimum: 0, maximum: 1 }
+        deviceOnline: { type: boolean }
+        lastEventId: { type: string }
+        snapbackZone: { $ref: "#/components/schemas/SnapbackZone" }
+        vesselId: { type: string }
+
+    EventCreate:
+      type: object
+      required: [lineId, riskLevel]
+      properties:
+        eventId: { type: string, description: 생략 시 자동 생성 }
+        traceId: { type: string, description: 생략 시 자동 생성 }
+        lineId: { type: string, example: mooring-03 }
+        siteId: { type: string }
+        berthId: { type: string }
+        riskLevel: { $ref: "#/components/schemas/RiskLevel" }
+        riskScore: { type: number, minimum: 0, maximum: 1 }
+        classProbabilities: { $ref: "#/components/schemas/ClassProbabilities" }
+        modelVersion: { type: string, default: manual }
+        occurredAt: { type: string, format: date-time }
+        features: { type: object, additionalProperties: { type: number } }
+        context: { type: object }
+        snapbackZone: { $ref: "#/components/schemas/SnapbackZone" }
+        alertMessage: { type: string }
+        acknowledged: { type: boolean }
+
+    EventUpdate:
+      type: object
+      description: 제공된 필드만 갱신 (부분 수정)
+      properties:
+        riskLevel: { $ref: "#/components/schemas/RiskLevel" }
+        riskScore: { type: number, minimum: 0, maximum: 1 }
+        classProbabilities: { $ref: "#/components/schemas/ClassProbabilities" }
+        modelVersion: { type: string }
+        features: { type: object, additionalProperties: { type: number } }
+        context: { type: object }
+        snapbackZone: { $ref: "#/components/schemas/SnapbackZone" }
+        alertMessage: { type: string }
+        acknowledged: { type: boolean }
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: LINE_NOT_FOUND
+          description: >
+            VALIDATION_ERROR / DUPLICATE_EVENT / ALREADY_EXISTS / LINE_NOT_FOUND /
+            EVENT_NOT_FOUND / ALERT_NOT_FOUND / VESSEL_NOT_FOUND / ROUTE_NOT_FOUND / INTERNAL_ERROR
+        message: { type: string }
+
+    # --- 공통 응답 envelope --------------------------------------------------
+    EnvelopeBase:
+      type: object
+      required: [requestId, timestamp, data, error]
+      properties:
+        requestId: { type: string, example: req-20260708-a50e2c07 }
+        timestamp: { type: string, format: date-time }
+        error:
+          allOf: [{ $ref: "#/components/schemas/Error" }]
+          nullable: true
+        data: { nullable: true }
+
+    DeleteResult:
+      type: object
+      properties:
+        deleted: { type: boolean, example: true }
+        lineId: { type: string }
+        eventId: { type: string }
+        alertId: { type: string }
+
+    LinesResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnvelopeBase"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/LineStatus" }
+
+    LineResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnvelopeBase"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/LineStatus" }
+
+    EventsResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnvelopeBase"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/EventRecord" }
+
+    EventResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnvelopeBase"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/EventRecord" }
+
+    SummaryResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnvelopeBase"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/DashboardSummary" }
+
+    AlertResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnvelopeBase"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/AlertRecord" }
+
+    AlertsResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnvelopeBase"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/AlertRecord" }
+
+    DeleteResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnvelopeBase"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/DeleteResult" }
+
+    ErrorResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnvelopeBase"
+        - type: object
+          properties:
+            data:
+              nullable: true
+              example: null
+            error: { $ref: "#/components/schemas/Error" }
+
+    # --- vessels ------------------------------------------------------------
+    Vessel:
+      type: object
+      required: [vesselId, name, siteId, berthId, createdAt, updatedAt, status]
+      properties:
+        vesselId: { type: string, example: vessel-01 }
+        name: { type: string, example: HYUNDAI FORWARD }
+        siteId: { type: string, example: yard-a }
+        berthId: { type: string, example: berth-01 }
+        imo: { type: string, nullable: true, example: "9812345" }
+        vesselType: { type: string, nullable: true, example: Container }
+        lengthOverallM: { type: number, nullable: true, example: 300 }
+        lat: { type: number, nullable: true, example: 34.7842 }
+        lon: { type: number, nullable: true, example: 126.517 }
+        status: { type: string, enum: [BERTHED, APPROACHING, DEPARTED] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    VesselCreate:
+      type: object
+      required: [name]
+      properties:
+        vesselId: { type: string, description: 생략 시 자동 생성 }
+        name: { type: string }
+        siteId: { type: string }
+        berthId: { type: string }
+        imo: { type: string }
+        vesselType: { type: string }
+        lengthOverallM: { type: number }
+        lat: { type: number }
+        lon: { type: number }
+        status: { type: string, enum: [BERTHED, APPROACHING, DEPARTED] }
+
+    VesselUpdate:
+      type: object
+      description: 제공된 필드만 갱신 (부분 수정)
+      properties:
+        name: { type: string }
+        siteId: { type: string }
+        berthId: { type: string }
+        imo: { type: string }
+        vesselType: { type: string }
+        lengthOverallM: { type: number }
+        lat: { type: number }
+        lon: { type: number }
+        status: { type: string, enum: [BERTHED, APPROACHING, DEPARTED] }
+
+    VesselResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnvelopeBase"
+        - type: object
+          properties:
+            data: { $ref: "#/components/schemas/Vessel" }
+
+    VesselsResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnvelopeBase"
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: "#/components/schemas/Vessel" }

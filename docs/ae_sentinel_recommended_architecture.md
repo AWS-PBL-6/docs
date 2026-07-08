@@ -3,6 +3,12 @@
 > 음향 방출(AE) 기반 계류삭 파단 예측 및 스냅백 위험구역 관제 시스템  
 > 기준: **3인 팀 · 단일 팀 AWS 계정 · React 서버리스 웹 · IoT 이벤트 기반 추론 · SageMaker ML**
 
+> **변경 (2026-07) · 선박 중심 모델:** AE 센서는 안벽이 아니라 **선박의 계류삭 볼라드**에
+> 부착된다. 각 계류삭(line)은 `vesselId`로 선박(Vessel)에 연결되며, 관제 대시보드는 안벽
+> 도면 대신 **실제 지도(위·경도)** 위에 선박을 마커로 표시한다. 마커를 클릭하면 해당 선박의
+> 계류삭 상태·파단 위험(센티넬) 상세와 선박 제원을 함께 보여준다. 선박 정보는 별도 `Vessels`
+> 저장소(DynamoDB `-vessels`)에서 CRUD로 관리한다.
+
 ---
 
 ## 1. 계정 구성 및 도메인 분리
@@ -31,10 +37,10 @@ flowchart LR
     %% =========================================================
     %% FIELD / EDGE
     %% =========================================================
-    subgraph FIELD["현장 / Edge"]
+    subgraph FIELD["현장 / Edge — 선박 계류삭 볼라드"]
         direction TB
 
-        SENSOR["압전 진동 센서<br/>Piezo / AE Sensor"]
+        SENSOR["압전 진동 센서<br/>Piezo / AE Sensor<br/>(선박 볼라드 부착)"]
         AFE["아날로그 프론트엔드<br/>증폭 · 필터링 · 보호회로"]
         ESP32["ESP32 Edge Processor<br/>Sampling · Windowing · FFT<br/>Feature Extraction"]
         LOCAL["Local Fail-safe<br/>LED · Buzzer · 절대 임계치 경보"]
@@ -101,7 +107,7 @@ flowchart LR
             ORCH --> WSLAMBDA
         end
 
-        DDB["Amazon DynamoDB<br/>라인 최신 상태 · 이벤트 · 알림 이력<br/>WebSocket Connection ID"]
+        DDB["Amazon DynamoDB<br/>라인 최신 상태 · 이벤트 · 알림 이력<br/>선박(Vessel) · WebSocket Connection ID"]
         SNS["Amazon SNS<br/>SMS · Email · Mobile Push"]
         APPS3["Amazon S3<br/>안벽 도면 · 정적 자산 · 이벤트 첨부"]
         APPCW["Amazon CloudWatch<br/>Logs · Metrics · Alarm"]
@@ -270,7 +276,7 @@ sequenceDiagram
 flowchart LR
     subgraph FRONT["Frontend — 김태훈"]
         REACT["React Dashboard"]
-        MAP["안벽 도면 · 데드존 시각화"]
+        MAP["실제 지도 · 선박 마커 · 데드존 시각화"]
         AUTHUI["로그인 · 권한 UI"]
         STATE["REST Query · WebSocket State"]
     end
@@ -379,6 +385,13 @@ flowchart LR
 | `GET` | `/dashboard/summary` | 대시보드 요약 통계 |
 | `POST` | `/alerts/test` | 테스트 경보 발생 |
 | `POST` | `/alerts/{eventId}/ack` | 경보 확인 처리 |
+| `GET` / `POST` | `/vessels` | 선박 목록 조회 / 생성 |
+| `GET` / `PUT` / `DELETE` | `/vessels/{vesselId}` | 선박 상세 조회 / 수정 / 삭제 |
+
+> 실제 배포는 `/v1` prefix를 쓰며, 계류삭·이벤트 생성/수정/삭제(CUD)와 경보 조회/삭제(RD),
+> 선박 CRUD를 포함한 전체 표면은 `docs/packages/contracts/openapi/ae-sentinel-rest.v1.yaml`
+> 및 배포된 Swagger UI(`/docs`)에서 확인한다. 각 계류삭 상태 응답에는 소속 선박을 가리키는
+> `vesselId`가 포함된다.
 
 ## WebSocket 이벤트
 
@@ -475,6 +488,7 @@ flowchart LR
 ```json
 {
   "lineId": "mooring-03",
+  "vesselId": "vessel-02",
   "riskLevel": "DANGER",
   "riskScore": 0.962,
   "updatedAt": "2026-07-07T07:00:01.210Z",

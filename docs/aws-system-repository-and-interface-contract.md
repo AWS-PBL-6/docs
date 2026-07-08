@@ -12,6 +12,7 @@
 - 실시간 경로에는 `feature event`만 올리고, 원시 파형(raw waveform)은 `S3` 적재 경로로 분리한다.
 - `SageMaker Endpoint`는 반드시 `Orchestrator Lambda`만 호출한다.
 - `Bedrock`은 물리 계산을 하지 않고, 결정론적 결과를 설명 문장과 UI 친화 JSON으로 가공하는 역할만 담당한다.
+- **AE 센서는 선박의 계류삭 볼라드에 부착**된다(2026-07 변경). 각 계류삭은 선택적 `vesselId`로 선박(Vessel)에 연결되며, 선박 정보(제원·위경도·상태)는 `Vessels` 저장소에서 CRUD로 관리한다. 관제 대시보드는 안벽 도면 대신 실제 지도 위에 선박을 마커로 표시하고, 마커 클릭 시 해당 선박의 계류삭 상태·파단 위험 상세와 제원을 함께 보여준다.
 
 ## 2. 권장 저장소 구조
 
@@ -281,6 +282,15 @@ IoT -> Backend, Backend 내부 이벤트, WebSocket 메시지는 공통 envelope
 | `GET` | `/v1/dashboard/summary` | 대시보드 요약 통계 |
 | `POST` | `/v1/alerts/test` | 테스트 경보 생성 |
 | `POST` | `/v1/events/{eventId}/ack` | 경보 확인 처리 |
+| `GET` | `/v1/vessels` | 전체 선박 조회 |
+| `POST` | `/v1/vessels` | 선박 생성 |
+| `GET` | `/v1/vessels/{vesselId}` | 선박 상세 조회 |
+| `PUT` | `/v1/vessels/{vesselId}` | 선박 수정 (부분 수정) |
+| `DELETE` | `/v1/vessels/{vesselId}` | 선박 삭제 |
+
+> 위 표는 핵심 경로 요약이다. 계류삭·이벤트 생성/수정/삭제(CUD)와 경보 조회/삭제(RD)를
+> 포함한 **전체 CRUD 표면**과 요청/응답 스키마는 `docs/packages/contracts/openapi/ae-sentinel-rest.v1.yaml`
+> (배포된 Swagger UI `/docs`)에 정의되어 있으며 이 문서와 동기화된다.
 
 ### 9.2. REST 응답 Envelope
 
@@ -340,6 +350,35 @@ IoT -> Backend, Backend 내부 이벤트, WebSocket 메시지는 공통 envelope
 - `snapback.zone.updated`
 - `alert.sent`
 - `device.offline`
+
+### 9.4. 선박(Vessel) 및 계류삭 연결
+
+AE 센서는 선박의 계류삭 볼라드에 부착되므로, 각 계류삭(`LineStatus`)은 선택적 `vesselId`로
+선박에 연결된다. 대시보드 지도는 선박의 `lat`/`lon`으로 마커를 표시하고, 마커 색은 그 선박에
+속한 계류삭 중 가장 높은 위험도를 따른다.
+
+선박(Vessel) 레코드:
+
+```json
+{
+  "vesselId": "vessel-01",
+  "name": "HYUNDAI FORWARD",
+  "siteId": "yard-a",
+  "berthId": "berth-01",
+  "imo": "9812345",
+  "vesselType": "Container",
+  "lengthOverallM": 300,
+  "lat": 34.7842,
+  "lon": 126.517,
+  "status": "BERTHED",
+  "createdAt": "2026-07-08T00:00:00.000Z",
+  "updatedAt": "2026-07-08T00:00:00.000Z"
+}
+```
+
+- `status` enum: `BERTHED | APPROACHING | DEPARTED`
+- 계류삭 상태(`GET /v1/lines`) 응답에는 소속 선박을 가리키는 `vesselId` 필드가 포함된다.
+- 선박 생성 시 `vesselId`를 생략하면 서버가 자동 생성한다.
 
 ## 10. `docs/packages/contracts`에 먼저 고정할 파일
 
