@@ -370,6 +370,24 @@ flowchart LR
 
 > 산업 안전 시스템에서는 Accuracy보다 **위험 상태를 정상으로 놓치는 False Negative**를 우선 관리한다.
 
+## 학습 데이터셋 (AE-Damage-Detection)
+
+모델은 음향 방출 복합재 손상 데이터셋(AE-Damage-Detection-Dataset)으로 학습한다. 주요 특징
+컬럼은 `Peak_Amplitude_dB`, `Energy_Release_J`, `Signal_Duration_ms`, `Rise_Time_ms`,
+`Frequency_Spectrum_Hz`, `Load_Condition`, `Impact_Energy_J`, `Temperature_C`,
+`Humidity_%`, `Fiber_Type`, `Resin_Type`, `Thickness_mm`이며, 라벨 `Damage_Type`은 4종이다.
+
+| `Damage_Type` | 손상 유형 | 위험도 매핑 |
+|---:|---|---|
+| 0 | 정상 (No Damage) | `NORMAL` |
+| 1 | 매트릭스 균열 (Matrix Cracking) | `CAUTION` |
+| 2 | 섬유 파단 (Fiber Breakage) | `DANGER` |
+| 3 | 층간 분리 (Delamination) | `DANGER` |
+
+> 엣지(ESP32)가 실시간으로 추출·전송하는 특징(§8의 `features`)은 이 데이터셋 컬럼의
+> 부분집합이며, 관제 대시보드의 계류삭 상세는 매핑된 라인에 한해 위 스키마의 AE 수치를
+> 함께 표시한다.
+
 ---
 
 # 6. API 구조
@@ -389,9 +407,10 @@ flowchart LR
 | `GET` / `PUT` / `DELETE` | `/vessels/{vesselId}` | 선박 상세 조회 / 수정 / 삭제 |
 
 > 실제 배포는 `/v1` prefix를 쓰며, 계류삭·이벤트 생성/수정/삭제(CUD)와 경보 조회/삭제(RD),
-> 선박 CRUD를 포함한 전체 표면은 `docs/packages/contracts/openapi/ae-sentinel-rest.v1.yaml`
-> 및 배포된 Swagger UI(`/docs`)에서 확인한다. 각 계류삭 상태 응답에는 소속 선박을 가리키는
-> `vesselId`가 포함된다.
+> 선박·볼라드 CRUD 및 접안/출항 워크플로(`/vessels/{id}/berthing`·`/departure`)를 포함한
+> 전체 표면은 `docs/packages/contracts/openapi/ae-sentinel-rest.v1.yaml` 및 배포된
+> Swagger UI(`/docs`)에서 확인한다. 각 계류삭 상태 응답에는 영구 귀속 볼라드 `bollardId`와
+> 접안 중인 선박 `vesselId`가 포함되며, `lineId` 생략 시 서버가 자동 생성한다.
 
 ## WebSocket 이벤트
 
