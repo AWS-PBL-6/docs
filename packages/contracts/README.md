@@ -21,7 +21,19 @@ canonical source of truth 는 `AWS-PBL-6/docs` 저장소다.
 ## 우선 계약
 
 - `schemas/common/event-envelope.v1.json`
-- `schemas/iot/ae-feature-event.v1.json`
-- `schemas/ml/inference-request.v1.json`
+- `schemas/iot/ae-feature-event.v2.json` ← **현행** (port-domain 접촉식 AE 이벤트)
+- `schemas/ml/inference-request.v2.json` ← **현행** (윈도 집계 modelInput)
 - `schemas/ml/inference-response.v1.json`
 - `schemas/websocket/ws-risk-message.v1.json`
+
+### v1 (보관)
+
+- `schemas/iot/ae-feature-event.v1.json` — Kaggle proxy 시대 per-event 스키마
+- `schemas/ml/inference-request.v1.json` — proxy per-event modelInput
+
+> v2는 계류삭 AE 논문 기반 → 항만 도메인 모델로 전환하며 도입됐다. per-event
+> 특징(`amplitudeDbAe`·`snrDb`·`hitCount`·`signalType` + 환경 공변량)과, 모델 입력이
+> **직전 W개 이벤트 윈도 집계**로 바뀐 점이 v1과의 차이다. 배경은
+> [../../docs/rope-ae-dataset-evaluation.md](../../docs/rope-ae-dataset-evaluation.md),
+> [../../docs/port-ae-dataset.md](../../docs/port-ae-dataset.md) 참조. wire의
+> `schemaVersion`은 PoC 동안 `1.0.0`을 유지한다(파일 major만 v2).

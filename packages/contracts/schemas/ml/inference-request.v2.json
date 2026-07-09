@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "InferenceRequestV2",
+  "$comment": "Port-domain window model input. modelInput carries the aggregated last-W-events window vector (see ml/training-pipeline/port_window_features.py, WINDOW_SPEC_VERSION 1.0.0), not per-event raw features. Wire schemaVersion stays 1.0.0 for the PoC.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "requestId", "traceId", "eventId", "modelInput"],
+  "properties": {
+    "schemaVersion": { "const": "1.0.0" },
+    "requestId": { "type": "string", "minLength": 1 },
+    "traceId": { "type": "string", "minLength": 1 },
+    "eventId": { "type": "string", "minLength": 1 },
+    "modelInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Window-aggregated features (fixed order = featureSpec.runtimeFeatureNames).",
+      "required": [
+        "amp_mean", "amp_max", "snr_mean", "snr_max",
+        "hit_sum", "hit_max", "dur_max",
+        "n_low", "n_med", "n_high", "n_lhf",
+        "fhigh_max", "rate", "noise", "rain", "wind", "crane"
+      ],
+      "properties": {
+        "amp_mean": { "type": "number" },
+        "amp_max": { "type": "number" },
+        "snr_mean": { "type": "number" },
+        "snr_max": { "type": "number" },
+        "hit_sum": { "type": "number", "minimum": 0 },
+        "hit_max": { "type": "number", "minimum": 0 },
+        "dur_max": { "type": "number", "minimum": 0 },
+        "n_low": { "type": "number", "minimum": 0 },
+        "n_med": { "type": "number", "minimum": 0 },
+        "n_high": { "type": "number", "minimum": 0 },
+        "n_lhf": { "type": "number", "minimum": 0 },
+        "fhigh_max": { "type": "number", "minimum": 0 },
+        "rate": { "type": "number", "minimum": 0 },
+        "noise": { "type": "number", "minimum": 0 },
+        "rain": { "type": "number", "minimum": 0 },
+        "wind": { "type": "number", "minimum": 0 },
+        "crane": { "type": "number", "minimum": 0 }
+      }
+    }
+  }
+}

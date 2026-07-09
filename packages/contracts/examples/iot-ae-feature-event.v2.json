@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0.0",
+  "eventType": "ae.feature.detected",
+  "eventId": "evt-20260709-0001",
+  "traceId": "trc-20260709-0001",
+  "source": {
+    "account": "iot",
+    "service": "iot-rule",
+    "deviceId": "bollard-B17-ae01"
+  },
+  "occurredAt": "2026-07-09T07:00:00.000Z",
+  "sentAt": "2026-07-09T07:00:00.120Z",
+  "payload": {
+    "siteId": "busan",
+    "berthId": "PNC-1",
+    "lineId": "mooring-103",
+    "features": {
+      "amplitudeDbAe": 92.4,
+      "freqLowKhz": 20.0,
+      "freqHighKhz": 184.6,
+      "durationMs": 4.7,
+      "hitCount": 31,
+      "snrDb": 42.1,
+      "signalType": "High amplitude"
+    },
+    "context": {
+      "ambientNoiseDb": 36.2,
+      "rainMmh": 0.0,
+      "windMps": 4.3,
+      "craneActive": 0,
+      "ropeMblKn": 700.0
+    },
+    "rawObjectKey": "raw/busan/PNC-1/mooring-103/2026/07/09/evt-20260709-0001.bin"
+  }
+}

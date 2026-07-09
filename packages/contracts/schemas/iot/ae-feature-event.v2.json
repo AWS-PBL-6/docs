@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AeFeatureEventV2",
+  "$comment": "Port-domain contact-AE per-event schema (안벽 볼라드 부착 센서). Wire schemaVersion stays 1.0.0 for the PoC; the v2 file version reflects the evolved feature/context payload vs ae-feature-event.v1.json (which was the Kaggle-proxy per-event schema).",
+  "allOf": [
+    { "$ref": "../common/event-envelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "ae.feature.detected" },
+        "payload": {
+          "type": "object",
+          "required": ["siteId", "berthId", "lineId", "features", "context"],
+          "properties": {
+            "siteId": { "type": "string", "minLength": 1 },
+            "berthId": { "type": "string", "minLength": 1 },
+            "lineId": { "type": "string", "minLength": 1 },
+            "features": {
+              "type": "object",
+              "description": "Per-event AE hit measured by the shore-bollard contact sensor.",
+              "required": [
+                "amplitudeDbAe",
+                "freqLowKhz",
+                "freqHighKhz",
+                "durationMs",
+                "hitCount",
+                "snrDb",
+                "signalType"
+              ],
+              "properties": {
+                "amplitudeDbAe": { "type": "number", "minimum": 0, "description": "수신 진폭 (dB re 1 μV)" },
+                "freqLowKhz": { "type": "number", "minimum": 0 },
+                "freqHighKhz": { "type": "number", "minimum": 0 },
+                "durationMs": { "type": "number", "minimum": 0 },
+                "hitCount": { "type": "number", "minimum": 0, "description": "단일 버스트 내 충격 횟수" },
+                "snrDb": { "type": "number", "minimum": 0, "description": "수신 진폭 − 배경 소음 플로어" },
+                "signalType": {
+                  "type": "string",
+                  "enum": ["Low amplitude", "Low to high frequency", "Medium amplitude", "High amplitude"]
+                }
+              }
+            },
+            "context": {
+              "type": "object",
+              "description": "Environment covariates + optional line spec.",
+              "required": ["ambientNoiseDb", "rainMmh", "windMps", "craneActive"],
+              "properties": {
+                "ambientNoiseDb": { "type": "number", "minimum": 0 },
+                "rainMmh": { "type": "number", "minimum": 0 },
+                "windMps": { "type": "number", "minimum": 0 },
+                "craneActive": { "type": "integer", "minimum": 0, "maximum": 1 },
+                "ropeMblKn": { "type": "number", "minimum": 0, "description": "선택 — 스냅백 반경 산정용 계류삭 MBL" },
+                "tensionEstimateKn": { "type": "number", "minimum": 0, "description": "선택 — 로드셀 실측 장력 시" },
+                "temperatureC": { "type": "number" },
+                "humidityPct": { "type": "number", "minimum": 0, "maximum": 100 }
+              }
+            },
+            "rawObjectKey": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  ]
+}

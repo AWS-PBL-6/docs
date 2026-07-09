@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0.0",
+  "requestId": "req-20260709-0001",
+  "traceId": "trc-20260709-0001",
+  "eventId": "evt-20260709-0001",
+  "modelInput": {
+    "amp_mean": 78.3,
+    "amp_max": 96.1,
+    "snr_mean": 33.5,
+    "snr_max": 45.2,
+    "hit_sum": 214.0,
+    "hit_max": 41.0,
+    "dur_max": 5.9,
+    "n_low": 2.0,
+    "n_med": 3.0,
+    "n_high": 7.0,
+    "n_lhf": 0.0,
+    "fhigh_max": 188.0,
+    "rate": 6.4,
+    "noise": 36.2,
+    "rain": 0.0,
+    "wind": 4.3,
+    "crane": 0.0
+  }
+}
