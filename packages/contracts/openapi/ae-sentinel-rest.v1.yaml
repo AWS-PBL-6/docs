@@ -591,7 +591,7 @@ paths:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
     delete:
       tags: [Bollards]
-      summary: 볼라드 삭제
+      summary: 볼라드 삭제 (라인이 남아 있으면 거부)
       operationId: deleteBollard
       parameters: [{ $ref: "#/components/parameters/BollardId" }]
       responses:
@@ -602,6 +602,44 @@ paths:
               schema: { $ref: "#/components/schemas/DeleteResponse" }
         "404":
           description: 볼라드 없음 (`BOLLARD_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: 아직 라인이 귀속된 볼라드 (`BOLLARD_IN_USE`) — 라인 재매핑/삭제 후 시도
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+
+  /v1/bollards/{bollardId}/sensor:
+    post:
+      tags: [Bollards]
+      summary: 첫 1회 센서 연동 (실센서 DEVICE 또는 가상 VIRTUAL)
+      description: |
+        신규 볼라드(PENDING)의 1회성 센서 온보딩. DEVICE 는 `sensorId` 필수.
+        이후 재연동은 거부되며(`SENSOR_ALREADY_BOUND` 409), 유일한 예외는
+        가상 모드로 시작한 볼라드에 실물 센서를 설치하는 VIRTUAL→DEVICE 전환.
+        미연동(PENDING) 볼라드에는 계류삭을 연결할 수 없다(`BOLLARD_NOT_PROVISIONED` 409).
+      operationId: provisionBollardSensor
+      parameters: [{ $ref: "#/components/parameters/BollardId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BollardSensorBinding" }
+      responses:
+        "201":
+          description: 연동 완료된 볼라드
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BollardResponse" }
+        "404":
+          description: 볼라드 없음 (`BOLLARD_NOT_FOUND`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: 이미 연동됨 (`SENSOR_ALREADY_BOUND`)
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -845,7 +883,8 @@ components:
           description: >
             VALIDATION_ERROR / DUPLICATE_EVENT / ALREADY_EXISTS / LINE_NOT_FOUND /
             EVENT_NOT_FOUND / ALERT_NOT_FOUND / VESSEL_NOT_FOUND / BOLLARD_NOT_FOUND /
-            BOLLARD_FULL / ROUTE_NOT_FOUND / INTERNAL_ERROR
+            BOLLARD_FULL / BOLLARD_IN_USE / BOLLARD_NOT_PROVISIONED /
+            SENSOR_ALREADY_BOUND / LINE_MOORED / ROUTE_NOT_FOUND / INTERNAL_ERROR
         message: { type: string }
 
     # --- 공통 응답 envelope --------------------------------------------------
@@ -1016,6 +1055,13 @@ components:
         positionM: { type: number, description: "선석 서쪽 끝 기준 안벽 위치(m)", example: 40 }
         label: { type: string, nullable: true, example: B-01 }
         twinSlot: { type: integer, nullable: true, description: "바인딩된 디지털 트윈 포스트 번호(1-based)" }
+        sensorMode:
+          type: string
+          enum: [PENDING, DEVICE, VIRTUAL]
+          description: "첫 1회 센서 연동 상태: PENDING(미연동) → DEVICE(실센서) | VIRTUAL(가상 모드)"
+          example: DEVICE
+        sensorId: { type: string, nullable: true, description: 실센서 장비 ID (DEVICE 모드), example: ae-0001 }
+        sensorBoundAt: { type: string, format: date-time, nullable: true, description: 센서 연동 시각 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -1029,6 +1075,19 @@ components:
         positionM: { type: number }
         label: { type: string }
         twinSlot: { type: integer, description: 디지털 트윈 포스트 번호(1-based) }
+        sensorMode:
+          type: string
+          enum: [PENDING, DEVICE, VIRTUAL]
+          description: 생성 시 즉시 연동 가능 (생략 시 PENDING — 이후 /sensor 로 1회 연동)
+        sensorId: { type: string, description: DEVICE 모드 필수 }
+
+    BollardSensorBinding:
+      type: object
+      required: [sensorMode]
+      description: 첫 1회 센서 연동 요청 (PENDING→DEVICE|VIRTUAL, 이후 VIRTUAL→DEVICE 만 허용)
+      properties:
+        sensorMode: { type: string, enum: [DEVICE, VIRTUAL] }
+        sensorId: { type: string, description: DEVICE 모드 필수, example: ae-0013 }
 
     BollardUpdate:
       type: object

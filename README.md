@@ -15,3 +15,6 @@ packages/contracts/
 - `docs/aws-system-repository-and-interface-contract.md`
 - `docs/repository-split-strategy.md`
 - `docs/contracts-change-process.md`
+- `docs/ae_proxy_dataset_training_policy.md`
+- `docs/ae_proxy_training_result_report.md`
+- `docs/ae_proxy_hybrid_research_journal.md`
