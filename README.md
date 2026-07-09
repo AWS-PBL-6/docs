@@ -11,6 +11,10 @@ docs/
 packages/contracts/
 ```
 
+## 진행 보고서
+
+- [진행 보고서 (2026-07-08~09)](docs/progress-report-2026-07-09.md) — 디지털 트윈·볼라드 모델·데이터셋·모델 파이프라인 전 작업의 "무엇을·왜" 의사결정 보고서
+
 ## 아키텍처 · 계약 · 프로세스 (현행)
 
 - [AE-Sentinel 권장 AWS 전체 아키텍처](docs/ae_sentinel_recommended_architecture.md)
