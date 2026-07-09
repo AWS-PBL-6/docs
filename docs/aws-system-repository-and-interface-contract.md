@@ -13,7 +13,7 @@
 - `SageMaker Endpoint`는 반드시 `Orchestrator Lambda`만 호출한다.
 - `Bedrock`은 물리 계산을 하지 않고, 결정론적 결과를 설명 문장과 UI 친화 JSON으로 가공하는 역할만 담당한다.
 - **AE 센서는 안벽 볼라드(계선주)에 고정**된다(2026-07 확정). `Bollard`는 영구 자산이고, 각 계류삭(`Line`)의 `bollardId`는 불변 귀속처, `vesselId`는 접안 세션 동안만 붙는 시간제 연결이다. 항만 안전 기준으로 **하나의 볼라드에는 최대 2개 라인**만 묶을 수 있고(초과 시 `BOLLARD_FULL`), **미계선(접안 선박 없음) 라인은 항상 `NORMAL`**이다. 계류삭 생성 시 `lineId`를 생략하면 서버가 `mooring-<날짜>-<hex>`로 자동 생성한다.
-- 관제 대시보드는 안벽 도면 대신 실제 지도/디지털 트윈 위에 선박·볼라드를 표시한다. **볼라드 클릭 → 볼라드 상세**(연결 라인·수정/삭제·빈 볼라드 센서 매핑), **계류삭 클릭 → 계류삭 상세**(실시간 상태 + 3D 홋줄 + 매핑된 라인의 초음파(AE) 수치)를 보여준다. AE 수치의 표시 스키마는 ML 학습 데이터셋(AE-Damage-Detection)과 동일하게 유지한다.
+- 관제 대시보드는 안벽 도면 대신 실제 지도/디지털 트윈 위에 선박·볼라드를 표시한다. **볼라드 클릭 → 볼라드 상세**(연결 라인·수정/삭제·빈 볼라드 센서 매핑), **계류삭 클릭 → 계류삭 상세**(실시간 상태 + 3D 홋줄 + 매핑된 라인의 초음파(AE) 수치)를 보여준다. AE 수치의 표시 스키마는 §8.4 학습 데이터셋과 정합을 유지한다(현재 프론트 `LineDetail`은 구 AE-Damage-Detection 스키마 표시를 유지 중이며, 홋줄 AE 스키마로의 전환은 진행 예정 — §8.4 참조).
 
 ## 2. 권장 저장소 구조
 
@@ -268,39 +268,44 @@ IoT -> Backend, Backend 내부 이벤트, WebSocket 메시지는 공통 envelope
 - 입력 특징량이 바뀌면 `schemaVersion`과 `modelVersion`을 함께 올린다.
 - 추론 응답에는 반드시 `riskLevel`, `riskScore`, `classProbabilities`, `modelVersion`이 포함된다.
 
-### 8.4. 학습 데이터셋 (AE-Damage-Detection)
+### 8.4. 학습 데이터셋 (홋줄 AE — 논문 기반 → 항만 도메인 변환)
 
-ML 모델은 음향 방출 복합재 손상 데이터셋(AE-Damage-Detection-Dataset)으로 학습한다.
-컬럼(특징) 스키마와 손상 라벨은 다음과 같다.
+ML 모델은 **계류삭 AE 파단 실측 논문(Bashir et al. 2017, *Applied Acoustics* 121)**
+을 근거로 한 합성 데이터셋으로 학습한다. 근거·평가·검증은 별도 문서에 있다:
+[홋줄 AE 데이터셋 평가](./rope-ae-dataset-evaluation.md) ·
+[항만 볼라드 AE 데이터셋 카드](./port-ae-dataset.md) ·
+[데이터셋 신뢰성 검증 보고서](./dataset-reliability-report.md).
+
+관측 가능한(배포 시 센서에서 얻는) 특징 스키마 — 항만 도메인 변환본 기준:
 
 | 특징 | 단위/범위 | 설명 |
 |---|---|---|
-| `Peak_Amplitude_dB` | dB | 최대 진폭 |
-| `Energy_Release_J` | J | 방출 에너지 |
-| `Signal_Duration_ms` | ms | 신호 지속시간 |
-| `Rise_Time_ms` | ms | 상승 시간 |
-| `Frequency_Spectrum_Hz` | Hz | 주파수 스펙트럼(주성분) |
-| `Load_Condition` | Low/Med/High | 하중 조건 |
-| `Impact_Energy_J` | J | 충격 에너지 |
-| `Temperature_C` | °C | 온도 |
-| `Humidity_%` | % | 습도 |
-| `Fiber_Type` | Carbon/Glass | 섬유 종류 |
-| `Resin_Type` | Epoxy/Polyester | 수지 종류 |
-| `Thickness_mm` | mm | 두께 |
+| `Amplitude_dB_AE` | dB re 1 μV | 접촉식 AE 수신 진폭 |
+| `Freq_Low_kHz` / `Freq_High_kHz` | kHz | 신호 주파수 대역 하한/상한 |
+| `Duration_ms` | ms | 신호 지속시간 |
+| `Hit_Count` | 회 | 단일 버스트 내 충격 횟수 (위험 단계의 강한 피처) |
+| `SNR_dB` | dB | 수신 진폭 − 배경 소음 플로어 |
+| `Ambient_Noise_dB` | dB | 배경 소음 플로어(크레인·강우·바람 반영) |
+| `Rain_mmh` / `Wind_mps` / `Crane_Active` | 환경 공변량 | 강우량·풍속·크레인 가동 |
+| `Temperature_C` / `Humidity_pct` | °C / % | 온·습도 |
+| `Rope_Diameter_mm` / `Rope_MBL_kN` | mm / kN | 계류삭 규격 |
 
-손상 유형(`Damage_Type`, 분류 라벨):
+분류 라벨(`DamageType`)과 위험도 매핑:
 
-| 값 | 손상 유형 |
-|---:|---|
-| 0 | 정상 (No Damage) |
-| 1 | 매트릭스 균열 (Matrix Cracking) |
-| 2 | 섬유 파단 (Fiber Breakage) |
-| 3 | 층간 분리 (Delamination) |
+| 라벨 | 하중 단계 | 위험도 |
+|---|---|---|
+| 안전 (Safe) | < 50% MBL | `NORMAL` |
+| 주의 (Caution) | 50–70% MBL | `CAUTION` |
+| 위험 (Danger) | ≥ 70% MBL | `DANGER` |
 
-> 위 4종 손상 유형은 시스템의 `NORMAL / CAUTION / DANGER` 위험도로 축약 매핑된다
-> (0→NORMAL, 1→CAUTION, 2·3→DANGER). 매핑된 계류삭 상세(`LineDetail`)는 이 스키마의
-> 수치를 함께 표시하며, 실제 센서/ML 파이프라인이 라인별 최신 특징량을 push하면 그 값으로
-> 대체한다.
+> 모델 입력은 개별 이벤트가 아니라 **직전 N개 이벤트의 시계열 윈도 집계**를 사용한다
+> (신호군 조성·이벤트율·진폭/히트 통계). 하중비·절대시간·시험기 좌표는 라벨 누수 및
+> 배포 불가 정보이므로 학습 피처에서 제외한다.
+>
+> ⚠️ **마이그레이션 진행 중**: 현재 프론트 `LineDetail`의 AE 수치 표시는 구
+> AE-Damage-Detection 스키마(`lib/acoustic.ts` 합성값)를 유지하고 있으며, 위 홋줄 AE
+> 스키마로의 전환과 실 센서/ML 특징량 push 연동은 예정 작업이다. 이전 proxy 접근의
+> 상세 스키마는 [보관 문서](./archive/README.md)에 있다.
 
 ## 9. Backend -> Frontend REST / WebSocket 규약
 

@@ -1,3 +1,9 @@
+> ⚠️ **보관됨(SUPERSEDED) · proxy breakage 모델 구현 결과 (2026-07-09)**
+> 이 문서는 **Kaggle 항공기 복합재 AE 데이터셋(AE-Damage-Detection)** 기반의 초기 proxy 접근을 기록한 것으로, 더 이상 현행 방법이 아니다. 현재는 계류삭 AE 파단 실측 논문(Bashir et al. 2017)을 근거로 한 합성 데이터셋과 그 항만 도메인 변환본을 사용한다.
+> 현행 문서: [홋줄 AE 데이터셋 평가](../rope-ae-dataset-evaluation.md) · [항만 볼라드 AE 데이터셋](../port-ae-dataset.md) · [데이터셋 신뢰성 검증 보고서](../dataset-reliability-report.md)
+
+---
+
 # AE Proxy Breakage Model 구현 결과 보고서
 
 작성일: 2026-07-09  
@@ -6,16 +12,16 @@
 관련 문서:
 
 - [AE Proxy Dataset 학습/임계값/발표 대응 보고서](./ae_proxy_dataset_training_policy.md)
-- [AE-Sentinel 권장 AWS 전체 아키텍처](./ae_sentinel_recommended_architecture.md)
-- [AE-Sentinel 저장소 구조 및 인터페이스 계약](./aws-system-repository-and-interface-contract.md)
+- [AE-Sentinel 권장 AWS 전체 아키텍처](../ae_sentinel_recommended_architecture.md)
+- [AE-Sentinel 저장소 구조 및 인터페이스 계약](../aws-system-repository-and-interface-contract.md)
 
 관련 구현:
 
-- [학습 파이프라인](../../ml/training-pipeline/proxy_breakage_pipeline.py)
-- [로컬 추론 런타임](../../ml/endpoint-runtime/local_model_runtime.py)
-- [로컬 백엔드 연동](../../backend/application-api/src/clients/sagemaker_client.py)
-- [학습 결과 요약 JSON](../../ml/training-pipeline/artifacts/latest/training_summary.json)
-- [학습 결과 요약 리포트](../../ml/training-pipeline/artifacts/latest/training_report.md)
+- [학습 파이프라인](../../../ml/training-pipeline/proxy_breakage_pipeline.py)
+- [로컬 추론 런타임](../../../ml/endpoint-runtime/local_model_runtime.py)
+- [로컬 백엔드 연동](../../../backend/application-api/src/clients/sagemaker_client.py)
+- [학습 결과 요약 JSON](../../../ml/training-pipeline/artifacts/latest/training_summary.json)
+- [학습 결과 요약 리포트](../../../ml/training-pipeline/artifacts/latest/training_report.md)
 
 ---
 

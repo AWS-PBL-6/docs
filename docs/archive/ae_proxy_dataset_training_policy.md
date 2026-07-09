@@ -1,12 +1,18 @@
+> ⚠️ **보관됨(SUPERSEDED) · proxy 데이터셋 학습·임계값 정책 (2026-07-09)**
+> 이 문서는 **Kaggle 항공기 복합재 AE 데이터셋(AE-Damage-Detection)** 기반의 초기 proxy 접근을 기록한 것으로, 더 이상 현행 방법이 아니다. 현재는 계류삭 AE 파단 실측 논문(Bashir et al. 2017)을 근거로 한 합성 데이터셋과 그 항만 도메인 변환본을 사용한다.
+> 현행 문서: [홋줄 AE 데이터셋 평가](../rope-ae-dataset-evaluation.md) · [항만 볼라드 AE 데이터셋](../port-ae-dataset.md) · [데이터셋 신뢰성 검증 보고서](../dataset-reliability-report.md)
+
+---
+
 # AE Proxy Dataset 학습/임계값/발표 대응 보고서
 
 작성일: 2026-07-09  
 대상 프로젝트: AE-Sentinel  
 관련 문서:
 
-- [AE-Sentinel 권장 AWS 전체 아키텍처](./ae_sentinel_recommended_architecture.md)
-- [AE-Sentinel 저장소 구조 및 인터페이스 계약](./aws-system-repository-and-interface-contract.md)
-- [부산대학교 클라우드 AI PBL 프로젝트 기획서](./pnu-cloud-ai-pbl-proposal-parsed.md)
+- [AE-Sentinel 권장 AWS 전체 아키텍처](../ae_sentinel_recommended_architecture.md)
+- [AE-Sentinel 저장소 구조 및 인터페이스 계약](../aws-system-repository-and-interface-contract.md)
+- [부산대학교 클라우드 AI PBL 프로젝트 기획서](../pnu-cloud-ai-pbl-proposal-parsed.md)
 
 ---
 
@@ -62,9 +68,9 @@ Kaggle 데이터셋 설명상 이 데이터는 복합재 항공기 부품의 AE 
 
 관련 계약:
 
-- [iot/ae-feature-event.v1.json](../packages/contracts/schemas/iot/ae-feature-event.v1.json)
-- [ml/inference-request.v1.json](../packages/contracts/schemas/ml/inference-request.v1.json)
-- [ml/inference-response.v1.json](../packages/contracts/schemas/ml/inference-response.v1.json)
+- [iot/ae-feature-event.v1.json](../../packages/contracts/schemas/iot/ae-feature-event.v1.json)
+- [ml/inference-request.v1.json](../../packages/contracts/schemas/ml/inference-request.v1.json)
+- [ml/inference-response.v1.json](../../packages/contracts/schemas/ml/inference-response.v1.json)
 
 즉, 학습 feature도 가능한 한 이 런타임 스키마와 맞춰야 한다.  
 특히 `Load_Condition`과 `Impact_Energy_J`는 현재 서비스 입력 계약에 직접 존재하지 않으므로,
@@ -449,9 +455,9 @@ PoC v1의 예시 결합식은 다음과 같다.
 
 ### 내부 문서
 
-- [AE-Sentinel 권장 AWS 전체 아키텍처](./ae_sentinel_recommended_architecture.md)
-- [AE-Sentinel 저장소 구조 및 인터페이스 계약](./aws-system-repository-and-interface-contract.md)
-- [부산대학교 클라우드 AI PBL 프로젝트 기획서](./pnu-cloud-ai-pbl-proposal-parsed.md)
+- [AE-Sentinel 권장 AWS 전체 아키텍처](../ae_sentinel_recommended_architecture.md)
+- [AE-Sentinel 저장소 구조 및 인터페이스 계약](../aws-system-repository-and-interface-contract.md)
+- [부산대학교 클라우드 AI PBL 프로젝트 기획서](../pnu-cloud-ai-pbl-proposal-parsed.md)
 
 ### 외부 자료
 

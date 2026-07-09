@@ -329,7 +329,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    DATA["Kaggle Proxy Data<br/>+ 실제 계류삭 AE 데이터"]
+    DATA["홋줄 AE 합성 데이터셋<br/>(논문 기반 → 항만 도메인 변환)<br/>+ 실제 계류삭 AE 데이터"]
     S3["Amazon S3"]
     PROCESS["SageMaker Processing"]
     TRAIN["SageMaker Training"]
@@ -370,23 +370,30 @@ flowchart LR
 
 > 산업 안전 시스템에서는 Accuracy보다 **위험 상태를 정상으로 놓치는 False Negative**를 우선 관리한다.
 
-## 학습 데이터셋 (AE-Damage-Detection)
+## 학습 데이터셋 (홋줄 AE — 논문 기반 → 항만 도메인 변환)
 
-모델은 음향 방출 복합재 손상 데이터셋(AE-Damage-Detection-Dataset)으로 학습한다. 주요 특징
-컬럼은 `Peak_Amplitude_dB`, `Energy_Release_J`, `Signal_Duration_ms`, `Rise_Time_ms`,
-`Frequency_Spectrum_Hz`, `Load_Condition`, `Impact_Energy_J`, `Temperature_C`,
-`Humidity_%`, `Fiber_Type`, `Resin_Type`, `Thickness_mm`이며, 라벨 `Damage_Type`은 4종이다.
+모델은 **계류삭 AE 파단 실측 논문(Bashir et al. 2017, *Applied Acoustics* 121)**
+을 근거로 생성한 합성 데이터셋으로 학습한다. 라벨은 하중비(%MBL) 단계에 대응하는
+`안전 / 주의 / 위험` 3종이며, 시스템 위험도 `NORMAL / CAUTION / DANGER`에 그대로
+매핑된다.
 
-| `Damage_Type` | 손상 유형 | 위험도 매핑 |
-|---:|---|---|
-| 0 | 정상 (No Damage) | `NORMAL` |
-| 1 | 매트릭스 균열 (Matrix Cracking) | `CAUTION` |
-| 2 | 섬유 파단 (Fiber Breakage) | `DANGER` |
-| 3 | 층간 분리 (Delamination) | `DANGER` |
+- **1차(논문 합성)**: `synthetic_rope_damage_classification_30k.csv` — 신호군(진폭·
+  주파수 대역)·히트카운트·하중 단계를 논문 Table IV/§3.4 수치로 재현
+- **2차(배포 도메인 변환)**: `port_bollard_ae_dataset.csv` — 수중 하이드로폰 계측을
+  **안벽 볼라드 부착 접촉식 AE 센서 + 실항만 배경 소음** 도메인으로 변환(단위·감쇠·
+  검출 임계·크레인/강우/바람 교란 주입). 생성기: `ml/training-pipeline/port_domain_synthesis.py`
 
-> 엣지(ESP32)가 실시간으로 추출·전송하는 특징(§8의 `features`)은 이 데이터셋 컬럼의
-> 부분집합이며, 관제 대시보드의 계류삭 상세는 매핑된 라인에 한해 위 스키마의 AE 수치를
-> 함께 표시한다.
+| 라벨 | 하중 단계 | 위험도 매핑 |
+|---|---|---|
+| 안전 (Safe) | < 50% MBL | `NORMAL` |
+| 주의 (Caution) | 50–70% MBL | `CAUTION` |
+| 위험 (Danger) | ≥ 70% MBL | `DANGER` |
+
+> 모델 입력은 개별 이벤트가 아니라 **직전 N개 이벤트의 시계열 윈도 집계**(신호군
+> 조성·이벤트율·진폭/히트 통계)를 사용한다. 하중·절대시간·시험기 좌표는 라벨 누수
+> 및 배포 불가 정보이므로 학습 피처에서 제외한다. 근거·검증은 [데이터셋 · ML 문서]
+> (../README.md) 참조. 이전의 Kaggle 항공기 복합재 proxy 접근은
+> [보관 문서](./archive/README.md)에 있다.
 
 ---
 
