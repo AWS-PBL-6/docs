@@ -34,7 +34,7 @@ info:
     name: AE-Sentinel Application 팀
 
 servers:
-  - url: https://95jmuk33ul.execute-api.ap-northeast-2.amazonaws.com
+  - url: https://kfethf9pug.execute-api.ap-northeast-2.amazonaws.com
     description: 배포 환경 (ap-northeast-2, stack ae-sentinel-app)
 
 security:

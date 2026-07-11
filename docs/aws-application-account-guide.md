@@ -3,11 +3,11 @@
 > 이 문서는 **실제로 배포된** Application 백엔드(`ae-sentinel-app` 스택)의 구조와
 > 리소스 이름의 의미, 그리고 팀원별로 이것을 어떻게 이해/사용해야 하는지를 정리한다.
 >
-> - 계정: **762616536500** (단일 팀 계정)
+> - 계정: **727847798739** (단일 팀 계정)
 > - 리전: **ap-northeast-2 (서울)**
 > - 배포 방식: **AWS SAM** — `backend/infra/application-account/template.yaml`
 > - 스택 이름: **`ae-sentinel-app`**
-> - 최종 확인: 2026-07-08
+> - 최종 확인: 2026-07-09 (신규 계정 `727847798739`으로 재배포)
 
 관련 문서: [권장 아키텍처](./ae_sentinel_recommended_architecture.md) · [인터페이스 계약](./aws-system-repository-and-interface-contract.md) · [REST OpenAPI](../packages/contracts/openapi/ae-sentinel-rest.v1.yaml)
 
@@ -35,8 +35,8 @@ flowchart LR
         REST["Lambda: ae-sentinel-app-rest<br/>REST /v1 라우터"]
         WS["Lambda: ae-sentinel-app-ws<br/>WebSocket 연결관리"]
 
-        HTTPAPI["HTTP API (REST)<br/>id: 95jmuk33ul"]
-        WSAPI["WebSocket API<br/>id: 0p6gzr0c3k · stage: prod"]
+        HTTPAPI["HTTP API (REST)<br/>id: kfethf9pug"]
+        WSAPI["WebSocket API<br/>id: h268o748jg · stage: prod"]
 
         LINES[("DynamoDB<br/>ae-sentinel-app-lines")]
         EVENTS[("DynamoDB<br/>ae-sentinel-app-events")]
@@ -78,7 +78,7 @@ flowchart LR
 - **접두사 `ae-sentinel-app-`** = 이 Application 스택 소유 리소스라는 뜻. (`ae-sentinel-app` 은 SAM 스택 이름이고, 대부분의 물리 이름은 `${스택이름}-<역할>` 형태로 자동 생성된다.)
 - **역할 접미사**로 용도를 구분한다: `-lines / -events / -alerts / -ws-connections / -vessels`(DynamoDB), `-ingest / -rest / -ws / -docs`(Lambda), `-alerts`(SNS 토픽).
 - **IAM 역할·권한·IoT 규칙**은 CloudFormation이 뒤에 랜덤 접미사를 붙인다 (예: `...-IngestFunctionRole-flp8mNPm0GyX`). 이 랜덤 값은 **재배포 시 바뀔 수 있으니 어디에도 하드코딩하지 말 것**. 참조는 논리 이름(아래 표의 "논리 ID")이나 스택 출력값을 쓴다.
-- **API Gateway ID**(`95jmuk33ul`, `0p6gzr0c3k`)는 생성 시 자동 부여된 식별자다. URL은 스택 출력값(`RestApiUrl`, `WebSocketConnectUrl`)으로 확인한다.
+- **API Gateway ID**(`kfethf9pug`, `h268o748jg`)는 생성 시 자동 부여된 식별자다. URL은 스택 출력값(`RestApiUrl`, `WebSocketConnectUrl`)으로 확인한다.
 
 > 요약: `ae-sentinel-app-*` 로 시작하면 "우리 백엔드 스택 리소스", 접미사로 "무슨 역할"인지 읽으면 된다.
 
@@ -91,8 +91,8 @@ flowchart LR
 | IngestFunction | `ae-sentinel-app-ingest` | Lambda | IoT 이벤트 검증 → 추론 오케스트레이션 → 스냅백 → 알림 → 실시간 푸시 | App |
 | RestFunction | `ae-sentinel-app-rest` | Lambda | REST `/v1` 전체 라우터 | App |
 | WebSocketFunction | `ae-sentinel-app-ws` | Lambda | WebSocket `$connect`/`$disconnect` 연결 관리 | App |
-| RestApi | HTTP API `95jmuk33ul` | API Gateway (HTTP) | REST 엔드포인트 (`$default` 스테이지) | App |
-| WebSocketApi | WebSocket API `0p6gzr0c3k` | API Gateway (WS) | 실시간 푸시 (`prod` 스테이지) | App |
+| RestApi | HTTP API `kfethf9pug` | API Gateway (HTTP) | REST 엔드포인트 (`$default` 스테이지) | App |
+| WebSocketApi | WebSocket API `h268o748jg` | API Gateway (WS) | 실시간 푸시 (`prod` 스테이지) | App |
 | LinesTable | `ae-sentinel-app-lines` | DynamoDB | 계류삭 최신 상태 (PK `lineId`) | App |
 | EventsTable | `ae-sentinel-app-events` | DynamoDB | 이벤트 이력 (PK `eventId`) | App |
 | AlertsTable | `ae-sentinel-app-alerts` | DynamoDB | 알림 이력 (PK `alertId`) | App |
@@ -108,10 +108,10 @@ flowchart LR
 
 | 출력 | 값 |
 |---|---|
-| `RestApiUrl` | `https://95jmuk33ul.execute-api.ap-northeast-2.amazonaws.com` (경로 앞에 `/v1`) |
-| `WebSocketConnectUrl` | `wss://0p6gzr0c3k.execute-api.ap-northeast-2.amazonaws.com/prod` |
-| `WebSocketCallbackUrl` | `https://0p6gzr0c3k.execute-api.ap-northeast-2.amazonaws.com/prod` (백엔드가 push에 사용) |
-| `AlertsTopicArn` | `arn:aws:sns:ap-northeast-2:762616536500:ae-sentinel-app-alerts` |
+| `RestApiUrl` | `https://kfethf9pug.execute-api.ap-northeast-2.amazonaws.com` (경로 앞에 `/v1`) |
+| `WebSocketConnectUrl` | `wss://h268o748jg.execute-api.ap-northeast-2.amazonaws.com/prod` |
+| `WebSocketCallbackUrl` | `https://h268o748jg.execute-api.ap-northeast-2.amazonaws.com/prod` (백엔드가 push에 사용) |
+| `AlertsTopicArn` | `arn:aws:sns:ap-northeast-2:727847798739:ae-sentinel-app-alerts` |
 
 > 언제든 최신 값 확인:
 > ```bash
