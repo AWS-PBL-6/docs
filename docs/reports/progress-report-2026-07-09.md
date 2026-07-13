@@ -1,5 +1,7 @@
 # AE-Sentinel 진행 보고서 (2026-07-08 ~ 07-09)
 
+> **시점 기록:** 이 문서의 볼라드 센서 모델은 2026-07-13 계류삭별 센서 모델로 대체되었다. 현행 계약은 `../contracts/team-collaboration-interfaces.md`를 따른다.
+
 > 작성일: 2026-07-09 · 대상: AE-Sentinel (음향 방출 기반 계류삭 파단 예측·관제)
 > 이 문서는 "무엇을 했는가"와 "왜 그렇게 결정했는가"를 함께 남기는 의사결정
 > 보고서다. 각 작업의 상세 스펙·수치는 아래 링크 문서에 있다.
@@ -30,7 +32,7 @@
 계류삭 장력·파단은 3D 공간(선박–홋줄–볼라드 기하)에서만 제대로 읽힌다. 위험반경은
 평면 지도로는 전달이 약하지만 3D 트윈에서는 즉시 이해된다.
 
-상세: [볼라드 리팩토링 계획·이력](bollard-refactor-plan.md)
+상세(현재는 대체됨): [볼라드 리팩토링 계획·이력](../archive/bollard-refactor-plan.md)
 
 ---
 
@@ -44,7 +46,7 @@
 선례(하중 감시형 계선훅 모니터링)도 안벽 쪽 방식이다. 이 결정 하나가 데이터 모델
 전체(볼라드=영구 자산, 라인=불변 귀속, 선박=시간제 연결)를 규정했다.
 
-상세: [센서 부착 위치 결정](sensor-placement-decision.md)
+현행 결정: [센서 부착 위치 결정](../architecture/sensor-placement-decision.md)
 
 ---
 
@@ -65,7 +67,7 @@
 (PENDING→DEVICE|VIRTUAL)와 별도 UI로 분리해야 관리자가 헷갈리지 않는다. 가상 모드는
 실센서 설치 전에도 시스템을 시연·운영할 수 있게 하는 상용화 경로다.
 
-상세: [볼라드 리팩토링 계획·이력 §8~9](bollard-refactor-plan.md)
+상세(현재는 대체됨): [볼라드 리팩토링 계획·이력 §8~9](../archive/bollard-refactor-plan.md)
 
 ---
 
@@ -86,7 +88,7 @@
 
 **5.1 예전(폐기): Kaggle 항공기 복합재 proxy.** `0(정상) vs 2(섬유파단)` 이진 검출기.
 파이프라인은 완성했으나 분류 성능이 사실상 무작위(ROC-AUC≈0.50), 항공 복합재↔계류삭
-도메인 갭이 커 폐기. → [보관 문서](archive/README.md)
+도메인 갭이 커 폐기. → [보관 문서](../archive/README.md)
 
 **5.2 현행: 계류삭 AE 파단 실측 논문 기반.** Bashir et al. 2017(*Applied
 Acoustics* 121) — 폴리에스터 계류삭을 파단까지 인장 실험한 동료심사 논문. 신호 4군의
@@ -99,7 +101,7 @@ Acoustics* 121) — 폴리에스터 계류삭을 파단까지 인장 실험한 �
 이벤트가 아니라 **직전 N개 이벤트의 시계열 윈도**에 있음을 실험으로 확인
 (단일 이벤트 67% → 윈도 집계 93%).
 
-상세: [홋줄 AE 데이터셋 평가](rope-ae-dataset-evaluation.md)
+상세: [홋줄 AE 데이터셋 평가](../ml-data/rope-ae-dataset-evaluation.md)
 
 **5.4 배포 도메인 변환.** 수중 하이드로폰(dB re 1 μPa) 실험을 **안벽 볼라드 부착
 접촉식 AE 센서 + 실항만 배경 소음** 도메인으로 변환(단위·거리 감쇠·검출 임계·크레인/
@@ -109,8 +111,8 @@ Acoustics* 121) — 폴리에스터 계류삭을 파단까지 인장 실험한 �
 **왜 변환이 필요했나:** 논문은 수중 계측이고 우리 배포는 공기/구조 전파 접촉 센서다.
 단위·전파·소음 특성이 달라, 논문 데이터를 그대로 학습하면 배포 성능을 보증할 수 없다.
 
-상세: [항만 볼라드 AE 데이터셋 카드](port-ae-dataset.md) ·
-[신뢰성 검증 보고서](dataset-reliability-report.md)
+현행 자료: [계류삭 연결 고리 AE 데이터셋 카드](../ml-data/port-ae-dataset.md) ·
+[신뢰성 검증 보고서](../ml-data/dataset-reliability-report.md)
 
 ---
 
@@ -174,7 +176,7 @@ wire `schemaVersion`은 PoC 동안 1.0.0 유지(파일 major만 v2).
 
 **왜:** 예전/현행 문서가 섞이면 "무엇이 유효한가"가 흐려진다. 폐기 문서도 "왜 바꿨는가"의
 근거로 보존한다. 메타 repo를 통째로 push하지 않고 도메인별로 나눠 push하는 것이 이
-프로젝트의 확정된 협업 규칙([repository-split-strategy.md](repository-split-strategy.md)).
+프로젝트의 확정된 협업 규칙([repository-split-strategy.md](../contracts/repository-split-strategy.md)).
 
 ---
 
@@ -196,11 +198,11 @@ wire `schemaVersion`은 PoC 동안 1.0.0 유지(파일 major만 v2).
 
 ## 관련 문서
 
-- [센서 부착 위치 결정](sensor-placement-decision.md)
-- [볼라드 리팩토링 계획·이력](bollard-refactor-plan.md)
-- [홋줄 AE 데이터셋 평가](rope-ae-dataset-evaluation.md)
-- [항만 볼라드 AE 데이터셋 카드](port-ae-dataset.md)
-- [데이터셋 신뢰성 검증 보고서](dataset-reliability-report.md)
-- [권장 아키텍처](ae_sentinel_recommended_architecture.md) ·
-  [인터페이스 계약](aws-system-repository-and-interface-contract.md)
-- [보관: proxy 시대 문서](archive/README.md)
+- [현행 센서 부착 위치 결정](../architecture/sensor-placement-decision.md)
+- [보관: 볼라드 리팩토링 계획·이력](../archive/bollard-refactor-plan.md)
+- [홋줄 AE 데이터셋 평가](../ml-data/rope-ae-dataset-evaluation.md)
+- [계류삭 연결 고리 AE 데이터셋 카드](../ml-data/port-ae-dataset.md)
+- [데이터셋 신뢰성 검증 보고서](../ml-data/dataset-reliability-report.md)
+- [권장 아키텍처](../architecture/ae_sentinel_recommended_architecture.md) ·
+  [인터페이스 계약](../contracts/team-collaboration-interfaces.md)
+- [보관: proxy 시대 문서](../archive/README.md)

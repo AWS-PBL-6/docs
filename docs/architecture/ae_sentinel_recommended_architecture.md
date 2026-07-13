@@ -1,10 +1,13 @@
 # AE-Sentinel 권장 AWS 전체 아키텍처
 
+> 분류: 현행 아키텍처
+
 > 음향 방출(AE) 기반 계류삭 파단 예측 및 스냅백 위험구역 관제 시스템  
 > 기준: **3인 팀 · 단일 팀 AWS 계정 · React 서버리스 웹 · IoT 이벤트 기반 추론 · SageMaker ML**
 
-> **변경 (2026-07) · 선박 중심 모델:** AE 센서는 안벽이 아니라 **선박의 계류삭 볼라드**에
-> 부착된다. 각 계류삭(line)은 `vesselId`로 선박(Vessel)에 연결되며, 관제 대시보드는 안벽
+> **변경 (2026-07-13) · 계류삭 중심 센서 모델:** 피에조 센서는 **각 계류삭의 선박 측
+> 연결 고리(아이·스플라이스 인근)**에 한 대씩 부착된다. 각 계류삭(line)은 전용
+> `sensorId`와 `vesselId`로 선박(Vessel)에 연결되며, 관제 대시보드는 안벽
 > 도면 대신 **실제 지도(위·경도)** 위에 선박을 마커로 표시한다. 마커를 클릭하면 해당 선박의
 > 계류삭 상태·파단 위험(센티넬) 상세와 선박 제원을 함께 보여준다. 선박 정보는 별도 `Vessels`
 > 저장소(DynamoDB `-vessels`)에서 CRUD로 관리한다.
@@ -37,10 +40,10 @@ flowchart LR
     %% =========================================================
     %% FIELD / EDGE
     %% =========================================================
-    subgraph FIELD["현장 / Edge — 선박 계류삭 볼라드"]
+    subgraph FIELD["현장 / Edge — 계류삭 연결 고리"]
         direction TB
 
-        SENSOR["압전 진동 센서<br/>Piezo / AE Sensor<br/>(선박 볼라드 부착)"]
+        SENSOR["압전 진동 센서<br/>Piezo Sensor<br/>(계류삭 아이·스플라이스 인근)"]
         AFE["아날로그 프론트엔드<br/>증폭 · 필터링 · 보호회로"]
         ESP32["ESP32 Edge Processor<br/>Sampling · Windowing · FFT<br/>Feature Extraction"]
         LOCAL["Local Fail-safe<br/>LED · Buzzer · 절대 임계치 경보"]
@@ -379,8 +382,8 @@ flowchart LR
 
 - **1차(논문 합성)**: `synthetic_rope_damage_classification_30k.csv` — 신호군(진폭·
   주파수 대역)·히트카운트·하중 단계를 논문 Table IV/§3.4 수치로 재현
-- **2차(배포 도메인 변환)**: `port_bollard_ae_dataset.csv` — 수중 하이드로폰 계측을
-  **안벽 볼라드 부착 접촉식 AE 센서 + 실항만 배경 소음** 도메인으로 변환(단위·감쇠·
+- **2차(배포 도메인 변환)**: `port_mooring_eye_ae_dataset.csv` — 수중 하이드로폰 계측을
+  **계류삭 연결 고리 부착 피에조 센서 + 실항만 배경 소음** 도메인으로 변환(단위·감쇠·
   검출 임계·크레인/강우/바람 교란 주입). 생성기: `ml/training-pipeline/port_domain_synthesis.py`
 
 | 라벨 | 하중 단계 | 위험도 매핑 |
@@ -393,7 +396,7 @@ flowchart LR
 > 조성·이벤트율·진폭/히트 통계)를 사용한다. 하중·절대시간·시험기 좌표는 라벨 누수
 > 및 배포 불가 정보이므로 학습 피처에서 제외한다. 근거·검증은 [데이터셋 · ML 문서]
 > (../README.md) 참조. 이전의 Kaggle 항공기 복합재 proxy 접근은
-> [보관 문서](./archive/README.md)에 있다.
+> [보관 문서](../archive/README.md)에 있다.
 
 ---
 
@@ -416,7 +419,7 @@ flowchart LR
 > 실제 배포는 `/v1` prefix를 쓰며, 계류삭·이벤트 생성/수정/삭제(CUD)와 경보 조회/삭제(RD),
 > 선박·볼라드 CRUD 및 접안/출항 워크플로(`/vessels/{id}/berthing`·`/departure`)를 포함한
 > 전체 표면은 `docs/packages/contracts/openapi/ae-sentinel-rest.v1.yaml` 및 배포된
-> Swagger UI(`/docs`)에서 확인한다. 각 계류삭 상태 응답에는 영구 귀속 볼라드 `bollardId`와
+> Swagger UI(`/docs`)에서 확인한다. 각 계류삭 상태 응답에는 현재 안벽 연결 위치 `bollardId`와
 > 접안 중인 선박 `vesselId`가 포함되며, `lineId` 생략 시 서버가 자동 생성한다.
 
 ## WebSocket 이벤트

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PiezoFrequencyEventV1",
+  "$comment": "IoT→Backend raw reading. One AWS IoT Thing is assigned to exactly one mooring line; source.deviceId and payload.lineId are verified by the backend.",
+  "allOf": [
+    { "$ref": "../common/event-envelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "piezo.frequency.detected" },
+        "source": {
+          "allOf": [
+            { "$ref": "../common/event-envelope.v1.json#/$defs/source" },
+            { "required": ["deviceId"] }
+          ]
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["siteId", "berthId", "lineId", "freqHz"],
+          "properties": {
+            "siteId": { "type": "string", "minLength": 1 },
+            "berthId": { "type": "string", "minLength": 1 },
+            "lineId": { "type": "string", "minLength": 1 },
+            "freqHz": { "type": "number", "exclusiveMinimum": 0 },
+            "ambientNoiseDb": { "type": "number", "minimum": 0 },
+            "rainMmh": { "type": "number", "minimum": 0 },
+            "windMps": { "type": "number", "minimum": 0 },
+            "craneActive": { "type": "integer", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    }
+  ]
+}

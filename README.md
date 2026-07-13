@@ -1,49 +1,24 @@
-# AE-Sentinel Docs
+# AE-Sentinel 문서 허브
 
-이 디렉토리는 `AWS-PBL-6/docs` repo root 와 동일한 구조를 반영한다.
+문서는 목적별 폴더로 구분한다. 처음 합류한 팀원은 먼저
+[팀 협업 인터페이스 계약](docs/contracts/team-collaboration-interfaces.md)을 읽고,
+담당 영역의 운영 문서와 기계 검증 계약(`packages/contracts/`)을 확인한다.
 
-## 구조
+## 문서 구조
 
-```text
-docs/
-  docs/            # 현행 문서
-  docs/archive/    # 보관(과거 접근) 문서
-packages/contracts/
-```
+| 폴더 | 용도 | 시작 문서 |
+|---|---|---|
+| [`docs/architecture/`](docs/architecture/README.md) | 현행 AWS·도메인·UI 설계와 의사결정 | [권장 AWS 아키텍처](docs/architecture/ae_sentinel_recommended_architecture.md) |
+| [`docs/contracts/`](docs/contracts/README.md) | IoT·Backend·ML·Frontend 팀 경계와 변경 절차 | [팀 협업 인터페이스 계약](docs/contracts/team-collaboration-interfaces.md) |
+| [`docs/operations/`](docs/operations/README.md) | AWS 스택 및 센서 온보딩·이벤트 운영 | [센서·이벤트 운영 가이드](docs/operations/sensor-event-piezo-guide.md) |
+| [`docs/ml-data/`](docs/ml-data/README.md) | 계류삭 AE 데이터셋·학습 근거·검증 결과 | [연결 고리 AE 데이터셋 카드](docs/ml-data/port-ae-dataset.md) |
+| [`docs/reports/`](docs/reports/README.md) | 날짜가 고정된 진행 보고와 원본 기획 기록 | [보고서 색인](docs/reports/README.md) |
+| [`docs/archive/`](docs/archive/README.md) | 폐기되거나 대체된 설계·실험 | [보관 문서 색인](docs/archive/README.md) |
+| [`packages/contracts/`](packages/contracts/README.md) | OpenAPI·JSON Schema·예제 payload | [계약 패키지 안내](packages/contracts/README.md) |
 
-## 진행 보고서
+## 현행 핵심 결정
 
-- [진행 보고서 (2026-07-08~09)](docs/progress-report-2026-07-09.md) — 디지털 트윈·볼라드 모델·데이터셋·모델 파이프라인 전 작업의 "무엇을·왜" 의사결정 보고서
-
-## 아키텍처 · 계약 · 프로세스 (현행)
-
-- [AE-Sentinel 권장 AWS 전체 아키텍처](docs/ae_sentinel_recommended_architecture.md)
-- [저장소 구조 및 인터페이스 계약](docs/aws-system-repository-and-interface-contract.md)
-- [저장소 분리 전략](docs/repository-split-strategy.md)
-- [계약 변경 프로세스](docs/contracts-change-process.md)
-- [AWS 애플리케이션 계정 가이드](docs/aws-application-account-guide.md)
-- [디자인 시스템](docs/design.md)
-
-## 데이터셋 · ML (현행)
-
-계류삭 AE 파단 실측 논문(Bashir et al. 2017)을 근거로 한 합성 데이터셋 →
-항만 볼라드 도메인 변환본을 사용한다.
-
-- [홋줄 AE 데이터셋 평가](docs/rope-ae-dataset-evaluation.md) — 논문 기반 30k 합성 데이터셋의 이용 평가 근거
-- [항만 볼라드 AE 데이터셋 카드](docs/port-ae-dataset.md) — 배포 도메인 변환본(35k)의 생성·구성
-- [데이터셋 신뢰성 검증 보고서](docs/dataset-reliability-report.md) — 구조·물리·모델 기반 검증
-
-## 도메인 설계 결정 (현행)
-
-- [센서 부착 위치 결정 — 안벽 볼라드 고정형](docs/sensor-placement-decision.md)
-- [볼라드 중심 모델 리팩토링 계획·이력](docs/bollard-refactor-plan.md)
-
-## 원본 기획서
-
-- [부산대학교 클라우드 AI PBL 프로젝트 기획서(파싱본)](docs/pnu-cloud-ai-pbl-proposal-parsed.md)
-  — 최초 제출 기획서. Kaggle proxy 데이터셋 계획 시점의 기록이며, 데이터셋
-  방향은 이후 홋줄 AE 논문 기반으로 갱신되었다(위 "데이터셋 · ML" 참조).
-
-## 보관 (과거 접근)
-
-- [보관 문서 색인](docs/archive/README.md) — Kaggle 항공기 복합재 proxy 데이터셋 시대의 정책·결과·연구일지
+- 피에조 압전센서는 볼라드가 아니라 **각 계류삭의 선박 측 연결 고리(아이·스플라이스 인근)**에 한 대씩 부착한다.
+- `sensorId`는 `lineId`에 1:1 배정하며 `bollardId`는 현재 안벽 연결 위치만 나타낸다.
+- 원시 IoT topic은 `aesentinel/{sensorId}/piezo`, 특징 이벤트는 `aesentinel/{sensorId}/features`를 사용한다.
+- 프론트 관리자는 AWS IoT Thing 목록에서 센서를 클릭해 계류삭에 적용한다. 센서 ID 수기 입력은 기본 흐름이 아니다.

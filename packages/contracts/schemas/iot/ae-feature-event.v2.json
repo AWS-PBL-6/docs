@@ -1,13 +1,19 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "AeFeatureEventV2",
-  "$comment": "Port-domain contact-AE per-event schema (안벽 볼라드 부착 센서). Wire schemaVersion stays 1.0.0 for the PoC; the v2 file version reflects the evolved feature/context payload vs ae-feature-event.v1.json (which was the Kaggle-proxy per-event schema).",
+  "$comment": "Port-domain contact-AE per-event schema (계류삭 연결 고리 부착 센서). source.deviceId must be the AWS IoT Thing assigned to payload.lineId. Wire schemaVersion stays 1.0.0 for the PoC; the v2 file version reflects the evolved feature/context payload vs ae-feature-event.v1.json.",
   "allOf": [
     { "$ref": "../common/event-envelope.v1.json" },
     {
       "type": "object",
       "properties": {
         "eventType": { "const": "ae.feature.detected" },
+        "source": {
+          "allOf": [
+            { "$ref": "../common/event-envelope.v1.json#/$defs/source" },
+            { "required": ["deviceId"] }
+          ]
+        },
         "payload": {
           "type": "object",
           "required": ["siteId", "berthId", "lineId", "features", "context"],
@@ -17,7 +23,7 @@
             "lineId": { "type": "string", "minLength": 1 },
             "features": {
               "type": "object",
-              "description": "Per-event AE hit measured by the shore-bollard contact sensor.",
+              "description": "Per-event hit measured by the piezo sensor attached to this mooring line's ship-side eye/splice.",
               "required": [
                 "amplitudeDbAe",
                 "freqLowKhz",

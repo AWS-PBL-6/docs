@@ -18,12 +18,16 @@
 ## 현행 방법으로의 전환
 
 계류삭 AE 파단 실측 논문(Bashir et al. 2017, *Applied Acoustics* 121)을
-근거로 한 합성 데이터셋(안전/주의/위험 3단계) → 항만 볼라드 도메인 변환본으로
+근거로 한 합성 데이터셋(안전/주의/위험 3단계) → 계류삭 연결 고리 센서 도메인 변환본으로
 교체했다. 근거·평가·검증은 현행 문서 참조:
 
-- [홋줄 AE 데이터셋 평가](../rope-ae-dataset-evaluation.md)
-- [항만 볼라드 AE 데이터셋 카드](../port-ae-dataset.md)
-- [데이터셋 신뢰성 검증 보고서](../dataset-reliability-report.md)
+- [홋줄 AE 데이터셋 평가](../ml-data/rope-ae-dataset-evaluation.md)
+- [계류삭 연결 고리 AE 데이터셋 카드](../ml-data/port-ae-dataset.md)
+- [데이터셋 신뢰성 검증 보고서](../ml-data/dataset-reliability-report.md)
+
+## 대체된 도메인 설계
+
+- [볼라드 중심 센서 모델 리팩토링 계획](bollard-refactor-plan.md) — 2026-07-13 계류삭별 센서 모델로 대체
 
 > 참고: 아직 유지되는 코드 자산(`ml/training-pipeline/proxy_breakage_pipeline.py`,
 > `ml/endpoint-runtime/local_model_runtime.py`, `artifacts/latest/*`)은 로컬 추론

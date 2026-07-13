@@ -1,5 +1,7 @@
 # 부산대학교 클라우드 AI PBL 프로젝트 기획서
 
+> **원본 기획 기록:** 이후 변경된 현행 아키텍처·계약은 `../architecture/`와 `../contracts/`를 따른다.
+
 > Source: `/Users/mac/Desktop/Document/PNU/AWS/부산대_클라우드AI_PBL_기획서_늙은동아줄.docx`
 >
 > Parsed on: `2026-07-07`

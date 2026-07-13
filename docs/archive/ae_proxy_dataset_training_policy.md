@@ -1,6 +1,6 @@
 > ⚠️ **보관됨(SUPERSEDED) · proxy 데이터셋 학습·임계값 정책 (2026-07-09)**
 > 이 문서는 **Kaggle 항공기 복합재 AE 데이터셋(AE-Damage-Detection)** 기반의 초기 proxy 접근을 기록한 것으로, 더 이상 현행 방법이 아니다. 현재는 계류삭 AE 파단 실측 논문(Bashir et al. 2017)을 근거로 한 합성 데이터셋과 그 항만 도메인 변환본을 사용한다.
-> 현행 문서: [홋줄 AE 데이터셋 평가](../rope-ae-dataset-evaluation.md) · [항만 볼라드 AE 데이터셋](../port-ae-dataset.md) · [데이터셋 신뢰성 검증 보고서](../dataset-reliability-report.md)
+> 현행 문서: [홋줄 AE 데이터셋 평가](../ml-data/rope-ae-dataset-evaluation.md) · [계류삭 연결 고리 AE 데이터셋](../ml-data/port-ae-dataset.md) · [데이터셋 신뢰성 검증 보고서](../ml-data/dataset-reliability-report.md)
 
 ---
 
@@ -10,9 +10,9 @@
 대상 프로젝트: AE-Sentinel  
 관련 문서:
 
-- [AE-Sentinel 권장 AWS 전체 아키텍처](../ae_sentinel_recommended_architecture.md)
-- [AE-Sentinel 저장소 구조 및 인터페이스 계약](../aws-system-repository-and-interface-contract.md)
-- [부산대학교 클라우드 AI PBL 프로젝트 기획서](../pnu-cloud-ai-pbl-proposal-parsed.md)
+- [AE-Sentinel 권장 AWS 전체 아키텍처](../architecture/ae_sentinel_recommended_architecture.md)
+- [AE-Sentinel 저장소 구조 및 인터페이스 계약](../contracts/aws-system-repository-and-interface-contract.md)
+- [부산대학교 클라우드 AI PBL 프로젝트 기획서](../reports/pnu-cloud-ai-pbl-proposal-parsed.md)
 
 ---
 
@@ -455,9 +455,9 @@ PoC v1의 예시 결합식은 다음과 같다.
 
 ### 내부 문서
 
-- [AE-Sentinel 권장 AWS 전체 아키텍처](../ae_sentinel_recommended_architecture.md)
-- [AE-Sentinel 저장소 구조 및 인터페이스 계약](../aws-system-repository-and-interface-contract.md)
-- [부산대학교 클라우드 AI PBL 프로젝트 기획서](../pnu-cloud-ai-pbl-proposal-parsed.md)
+- [AE-Sentinel 권장 AWS 전체 아키텍처](../architecture/ae_sentinel_recommended_architecture.md)
+- [AE-Sentinel 저장소 구조 및 인터페이스 계약](../contracts/aws-system-repository-and-interface-contract.md)
+- [부산대학교 클라우드 AI PBL 프로젝트 기획서](../reports/pnu-cloud-ai-pbl-proposal-parsed.md)
 
 ### 외부 자료
 

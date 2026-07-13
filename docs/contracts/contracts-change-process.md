@@ -1,5 +1,7 @@
 # Contracts Change Process
 
+> 분류: 현행 협업 계약 · 변경 절차
+
 ## 1. 목적
 
 이 문서는 `AWS-PBL-6/docs` 저장소를 기준으로 `packages/contracts` 변경을 관리하는 절차를 정의한다.
