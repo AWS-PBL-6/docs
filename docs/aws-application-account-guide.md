@@ -89,6 +89,7 @@ flowchart LR
 | 논리 ID | 물리 이름 | 타입 | 역할 | 주 소유 |
 |---|---|---|---|---|
 | IngestFunction | `ae-sentinel-app-ingest` | Lambda | IoT 이벤트 검증 → 추론 오케스트레이션 → 스냅백 → 알림 → 실시간 푸시 | App |
+| PiezoIngestFunction | `ae-sentinel-app-ingest-piezo` | Lambda | 피에조(진동수 전용) 리딩 → AE 특징량 변환(T∝f²) → 동일 추론 파이프라인 | App |
 | RestFunction | `ae-sentinel-app-rest` | Lambda | REST `/v1` 전체 라우터 | App |
 | WebSocketFunction | `ae-sentinel-app-ws` | Lambda | WebSocket `$connect`/`$disconnect` 연결 관리 | App |
 | RestApi | HTTP API `kfethf9pug` | API Gateway (HTTP) | REST 엔드포인트 (`$default` 스테이지) | App |
@@ -199,4 +200,5 @@ sam delete --stack-name ae-sentinel-app --profile ae-sentinel
 | `BedrockModelId` | (빈값) | 비우면 한국어 템플릿 경보문, 지정하면 Bedrock 생성 |
 | `AlertEmail` | (빈값) | 지정하면 SNS 이메일 구독 자동 생성 |
 | `IoTTopicFilter` | `aesentinel/+/features` | ingest가 듣는 MQTT 토픽 필터 |
+| `PiezoTopicFilter` | `aesentinel/+/piezo` | 피에조 어댑터(ingest-piezo)가 듣는 MQTT 토픽 필터 |
 | `WebSocketStageName` | `prod` | WebSocket 스테이지 이름 |

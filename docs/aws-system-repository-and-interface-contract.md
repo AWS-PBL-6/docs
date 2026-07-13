@@ -164,6 +164,31 @@ IoT -> Backend, Backend 내부 이벤트, WebSocket 메시지는 공통 envelope
 - `eventId` 기반 idempotency 검사
 - 검증 성공 시 `ValidatedFeatureEvent`로 내부 전달
 
+### 6.4. 압전(피에조) 센서 경로 — 진동수 전용 입력
+
+실제 계류삭 센서는 **피에조 압전 센서로 구조 진동수(Hz)만 계측**한다. 이 입력을 기존 AE
+특징량 계약에 맞추기 위해 별도 어댑터 Lambda(`app-ingest-piezo`, `handlers.piezo`)를 둔다.
+예제: `packages/contracts/examples/iot-piezo-frequency-event.v1.json`.
+
+- 센서는 MQTT 토픽 `aesentinel/<site>/piezo` 로 최소 리딩을 publish한다(별도 IoT Rule → 어댑터).
+
+```json
+{ "schemaVersion": "1.0.0", "eventType": "piezo.frequency.detected",
+  "eventId": "evt-piezo-0001", "occurredAt": "2026-07-11T09:00:00.000Z",
+  "payload": { "siteId": "yard-a", "berthId": "berth-02", "lineId": "mooring-05", "freqHz": 28.5 } }
+```
+
+- 어댑터는 **taut-cable 관계(장력 T ∝ f²)** 로 진동수를 정규화 장력비 `ρ∈[0,1]`(슬랙 기준
+  `FREQ_SLACK_HZ`≈8Hz ~ 파단 임박 `FREQ_CRIT_HZ`≈32Hz)로 매핑하고, 이를 AE 특징량
+  (`amplitudeDbAe`·`snrDb`·`hitCount`·`durationMs`·`signalType`)으로 단조 변환하여
+  `ae-feature-event.v2`를 생성한 뒤 **동일한 검증→추론(SageMaker)→스냅백→알림 파이프라인**에 태운다.
+- 실측 진동수와 장력비는 이벤트 `context`(`sensorKind:"piezo"`, `structuralFreqHz`, `loadRatio`)에
+  보존되어, 대시보드 계류삭 상세가 "측정 진동수(Hz) · 추정 장력(%MBL)"로 우선 표시하고 AE 수치는
+  "진동수 기반 추정"으로 함께 보여준다.
+- 결과적으로 프론트·모델·SNS·WebSocket을 바꾸지 않고 진동수 전용 하드웨어를 그대로 수용한다.
+  `FREQ_SLACK_HZ`/`FREQ_CRIT_HZ`는 배포 시 env로 조정하며, 라인별 캘리브레이션(슬랙/임계 진동수
+  실측)은 후속 과제다.
+
 ## 7. Backend 내부 Lambda 호출 규약
 
 ### 7.1. 권장 Lambda 구성

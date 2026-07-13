@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1.0.0",
+  "eventType": "piezo.frequency.detected",
+  "eventId": "evt-piezo-20260711-0001",
+  "traceId": "trc-piezo-20260711-0001",
+  "occurredAt": "2026-07-11T09:00:00.000Z",
+  "sentAt": "2026-07-11T09:00:00.120Z",
+  "source": { "account": "iot", "service": "esp32-piezo", "deviceId": "piezo-berth02-08" },
+  "payload": {
+    "siteId": "yard-a",
+    "berthId": "berth-02",
+    "lineId": "mooring-05",
+    "freqHz": 28.5
+  }
+}
