@@ -1,12 +1,14 @@
 # 논문 기반 홋줄 AE 데이터셋 — 이용 평가 근거와 설명
 
+> 분류: 현행 ML·데이터 · 원천 근거
+
 > 작성일: 2026-07-09 · 평가 대상: `synthetic_rope_damage_classification_30k.csv`
 > 근거 논문: Bashir, Walsh, Thies, Weller, Blondel & Johanning (2017),
 > *Underwater Acoustic Emission Monitoring — Experimental investigations and
 > acoustic signature recognition of synthetic mooring ropes*, **Applied
 > Acoustics** 121, 95–103. DOI: 10.1016/j.apacoust.2017.01.033
 > 관련 문서: [현재 데이터셋 신뢰성 검증 보고서](dataset-reliability-report.md) ·
-> [항만 볼라드 AE 데이터셋 카드](port-ae-dataset.md)
+> [계류삭 연결 고리 AE 데이터셋 카드](port-ae-dataset.md)
 
 ## 1. 배경 — 왜 이 논문을 기반으로 했는가
 
@@ -83,7 +85,7 @@ vendored pandas/sklearn/xgboost, GroupKFold 5-fold).
 ## 5. 한계 (이 데이터셋 자체의 태생적 제약)
 
 - 성능 수치는 본질적으로 "생성 규칙의 역학습"이므로 실세계 성능을 보증하지 않음
-- 수중 하이드로폰 계측(dB re 1 μPa) — 볼라드 부착 공기/구조 전파 센서와
+- 수중 하이드로폰 계측(dB re 1 μPa) — 계류삭 연결 고리 부착 피에조 센서와
   단위·전파 특성이 다름 → [항만 도메인 변환 데이터셋](port-ae-dataset.md)으로 해소
 - 24 mm 실험용 로프 vs 실항만 계류삭(64 mm+) — 절대 임계 이식 불가, %MBL
   비율 개념만 유효

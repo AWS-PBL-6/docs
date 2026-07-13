@@ -1,5 +1,7 @@
 # AE-Sentinel — AWS Application 스택 가이드
 
+> 분류: 현행 운영 가이드
+
 > 이 문서는 **실제로 배포된** Application 백엔드(`ae-sentinel-app` 스택)의 구조와
 > 리소스 이름의 의미, 그리고 팀원별로 이것을 어떻게 이해/사용해야 하는지를 정리한다.
 >
@@ -7,9 +9,15 @@
 > - 리전: **ap-northeast-2 (서울)**
 > - 배포 방식: **AWS SAM** — `backend/infra/application-account/template.yaml`
 > - 스택 이름: **`ae-sentinel-app`**
-> - 최종 확인: 2026-07-09 (신규 계정 `727847798739`으로 재배포)
+> - 최종 확인: 2026-07-13 (SAM·Amplify·SageMaker·센서 마이그레이션 실배포)
 
-관련 문서: [권장 아키텍처](./ae_sentinel_recommended_architecture.md) · [인터페이스 계약](./aws-system-repository-and-interface-contract.md) · [REST OpenAPI](../packages/contracts/openapi/ae-sentinel-rest.v1.yaml)
+> **2026-07-13 운영 상태:** `ae-sentinel-app`은 계류삭별 센서 API로 배포됐고,
+> SageMaker Processing/Training과 Model Registry 승인 버전 1을 거친 모델
+> `ae-port-window-xgb-v1-20260713`이 endpoint `ae-sentinel-port-window`에서 서비스된다.
+> 프론트는 Amplify `main` Job 5로 수동 배포됐다. 상세 증적과 롤백 정보는
+> [배포·센서 마이그레이션 보고서](../reports/deployment-migration-2026-07-13.md)를 따른다.
+
+관련 문서: [권장 아키텍처](../architecture/ae_sentinel_recommended_architecture.md) · [인터페이스 계약](../contracts/team-collaboration-interfaces.md) · [REST OpenAPI](../../packages/contracts/openapi/ae-sentinel-rest.v1.yaml)
 
 ---
 
@@ -47,10 +55,10 @@ flowchart LR
     end
 
     subgraph ML["ML / AI (서강재)"]
-        SM["SageMaker Endpoint<br/>(SAGEMAKER_ENDPOINT · 현재 미연결=mock)"]
+        SM["SageMaker Endpoint<br/>ae-sentinel-port-window · 실모델 연결"]
     end
 
-    subgraph FE["Frontend (김태훈, 구현 예정)"]
+    subgraph FE["Frontend (React · Amplify main 배포)"]
         DASH["React 관제 대시보드"]
         WORKER["작업자 (SMS/Email)"]
     end
@@ -66,8 +74,9 @@ flowchart LR
     REST -->|"test alert push"| WSAPI
 ```
 
-> **센서 위치 (2026-07 변경):** AE 센서는 안벽이 아니라 **선박의 계류삭 볼라드**에
-> 부착된다. 따라서 각 계류삭(line)은 `vesselId`로 선박에 연결되고, 대시보드 지도는
+> **센서 위치 (2026-07-13 변경):** 피에조 센서는 **각 계류삭의 선박 측 연결 고리
+> (아이·스플라이스 인근)**에 한 대씩 부착된다. 각 계류삭(line)은 전용 `sensorId`와
+> `vesselId`를 가지며, 대시보드 지도는
 > 선박 위치(위·경도)에 마커로 표시된다. 선박 정보는 `ae-sentinel-app-vessels`
 > 테이블에서 관리한다.
 
@@ -126,7 +135,7 @@ flowchart LR
 ## 4. 데이터 흐름 (무엇이 어떻게 흐르나)
 
 **실시간 경로 (쓰기)**
-1. ESP32/시뮬레이터가 `aesentinel/<site>/features` 토픽으로 `ae.feature.detected` 이벤트를 MQTT publish.
+1. ESP32/시뮬레이터가 `aesentinel/<sensorId>/piezo`로 원시 주파수 또는 `aesentinel/<sensorId>/features`로 특징 이벤트를 MQTT publish.
 2. IoT Rule이 **동일 계정**에서 `ae-sentinel-app-ingest`를 호출(Lambda Permission).
 3. ingest가 스키마·범위·중복(eventId) 검증 → SageMaker(`SAGEMAKER_ENDPOINT`, 현재 미설정이라 내장 mock) 추론 → 위험도 판정.
 4. `DANGER`면 스냅백 반경/폴리곤 계산.
@@ -139,7 +148,7 @@ flowchart LR
 **실시간 경로 (구독)**
 - 대시보드가 WebSocket(`wss .../prod`)에 `$connect` → `ae-sentinel-app-ws`가 연결 ID를 `-ws-connections`에 저장 → 이후 ingest/rest가 이 연결들로 push.
 
-WebSocket 메시지 타입 계약: [`ws-risk-message.v1.json`](../packages/contracts/schemas/websocket/ws-risk-message.v1.json)
+WebSocket 메시지 타입 계약: [`ws-risk-message.v1.json`](../../packages/contracts/schemas/websocket/ws-risk-message.v1.json)
 (`line.status.updated`, `risk.caution.detected`, `risk.danger.detected`, `snapback.zone.updated`, `alert.sent`, `device.offline`).
 
 ---
@@ -151,12 +160,12 @@ WebSocket 메시지 타입 계약: [`ws-risk-message.v1.json`](../packages/contr
 - 리소스 이름 접두사(`ae-sentinel-app-`)와 접미사(역할)만 보면 소속/용도를 안다.
 
 **김세엽 (Edge / IoT)**
-- 완료 기준: 디바이스가 `aesentinel/<site>/features`로 **`ae.feature.detected` 계약을 지켜** publish 하는 것.
+- 완료 기준: 디바이스가 `aesentinel/<sensorId>/piezo`로 피에조 원시 이벤트 계약을 지켜 publish하고 `source.deviceId`와 배정된 `lineId`를 일치시키는 것.
 - 그 뒤는 IoT Rule → `ae-sentinel-app-ingest`가 자동 처리. 토픽/계약만 맞추면 됨.
 - 테스트: IoT Core MQTT test client에서 예제 payload publish → CloudWatch에서 ingest 로그 확인.
 
 **서강재 (ML / AI)**
-- 완료 기준: `inference-request.v1` 입력에 `inference-response.v1`을 반환하는 SageMaker 엔드포인트.
+- 완료 기준: `inference-request.v2` 윈도 입력에 `inference-response.v1`을 반환하는 SageMaker 엔드포인트.
 - 연결: 엔드포인트 배포 후 이름을 `SAGEMAKER_ENDPOINT` 파라미터로 재배포하면 mock→실제로 전환(같은 계정이라 AssumeRole 불필요).
 - 미연결 동안 백엔드는 내장 mock 분류기로 동작하므로 다른 팀이 막히지 않는다.
 

@@ -1,6 +1,6 @@
 > ⚠️ **보관됨(SUPERSEDED) · proxy 하이브리드 엔진 연구 일지 (2026-07-09)**
 > 이 문서는 **Kaggle 항공기 복합재 AE 데이터셋(AE-Damage-Detection)** 기반의 초기 proxy 접근을 기록한 것으로, 더 이상 현행 방법이 아니다. 현재는 계류삭 AE 파단 실측 논문(Bashir et al. 2017)을 근거로 한 합성 데이터셋과 그 항만 도메인 변환본을 사용한다.
-> 현행 문서: [홋줄 AE 데이터셋 평가](../rope-ae-dataset-evaluation.md) · [항만 볼라드 AE 데이터셋](../port-ae-dataset.md) · [데이터셋 신뢰성 검증 보고서](../dataset-reliability-report.md)
+> 현행 문서: [홋줄 AE 데이터셋 평가](../ml-data/rope-ae-dataset-evaluation.md) · [계류삭 연결 고리 AE 데이터셋](../ml-data/port-ae-dataset.md) · [데이터셋 신뢰성 검증 보고서](../ml-data/dataset-reliability-report.md)
 
 ---
 
@@ -349,4 +349,3 @@ booster 모델에서도 shadow spill-over 분석을 더 명시적으로 수행�
 
 따라서 다음 연구에서 가장 가치가 큰 것은
 증강보다 먼저 **실제 rope AE 데이터 수집**이다.
-

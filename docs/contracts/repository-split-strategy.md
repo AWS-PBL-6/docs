@@ -1,5 +1,7 @@
 # AE-Sentinel Git Repository Split Strategy
 
+> 분류: 현행 협업 계약 · 저장소 경계
+
 ## 1. 목적
 
 현재 워크스페이스는 아키텍처 설계와 초기 계약 정리를 위해 한 곳에 모아둔 상태다.  

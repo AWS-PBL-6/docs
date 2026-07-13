@@ -6,7 +6,7 @@
   "source": {
     "account": "iot",
     "service": "iot-rule",
-    "deviceId": "bollard-B17-ae01"
+    "deviceId": "piezo-mooring-103"
   },
   "occurredAt": "2026-07-09T07:00:00.000Z",
   "sentAt": "2026-07-09T07:00:00.120Z",

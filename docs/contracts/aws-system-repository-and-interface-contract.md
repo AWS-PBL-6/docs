@@ -1,9 +1,11 @@
 # AE-Sentinel 저장소 구조 및 인터페이스 계약
 
+> 분류: 현행 협업 계약
+
 > 기준 문서:
 >
-> - [ae_sentinel_recommended_architecture.md](/Users/mac/Desktop/Coding/_aipbl/docs/docs/ae_sentinel_recommended_architecture.md)
-> - [pnu-cloud-ai-pbl-proposal-parsed.md](/Users/mac/Desktop/Coding/_aipbl/docs/docs/pnu-cloud-ai-pbl-proposal-parsed.md)
+> - [권장 AWS 아키텍처](../architecture/ae_sentinel_recommended_architecture.md)
+> - [원본 PBL 기획서](../reports/pnu-cloud-ai-pbl-proposal-parsed.md)
 
 ## 1. 결정 사항
 
@@ -12,8 +14,8 @@
 - 실시간 경로에는 `feature event`만 올리고, 원시 파형(raw waveform)은 `S3` 적재 경로로 분리한다.
 - `SageMaker Endpoint`는 반드시 `Orchestrator Lambda`만 호출한다.
 - `Bedrock`은 물리 계산을 하지 않고, 결정론적 결과를 설명 문장과 UI 친화 JSON으로 가공하는 역할만 담당한다.
-- **AE 센서는 안벽 볼라드(계선주)에 고정**된다(2026-07 확정). `Bollard`는 영구 자산이고, 각 계류삭(`Line`)의 `bollardId`는 불변 귀속처, `vesselId`는 접안 세션 동안만 붙는 시간제 연결이다. 항만 안전 기준으로 **하나의 볼라드에는 최대 2개 라인**만 묶을 수 있고(초과 시 `BOLLARD_FULL`), **미계선(접안 선박 없음) 라인은 항상 `NORMAL`**이다. 계류삭 생성 시 `lineId`를 생략하면 서버가 `mooring-<날짜>-<hex>`로 자동 생성한다.
-- 관제 대시보드는 안벽 도면 대신 실제 지도/디지털 트윈 위에 선박·볼라드를 표시한다. **볼라드 클릭 → 볼라드 상세**(연결 라인·수정/삭제·빈 볼라드 센서 매핑), **계류삭 클릭 → 계류삭 상세**(실시간 상태 + 3D 홋줄 + 매핑된 라인의 초음파(AE) 수치)를 보여준다. AE 수치의 표시 스키마는 §8.4 학습 데이터셋과 정합을 유지한다(현재 프론트 `LineDetail`은 구 AE-Damage-Detection 스키마 표시를 유지 중이며, 홋줄 AE 스키마로의 전환은 진행 예정 — §8.4 참조).
+- **피에조 센서는 각 계류삭의 선박 측 연결 고리(아이·스플라이스 인근)에 개별 부착**된다(2026-07-13 확정). `sensorId`는 `lineId`에 1:1 귀속되고, `bollardId`는 안벽 연결 위치, `vesselId`는 접안 세션 선박을 나타낸다. 하나의 볼라드에는 최대 2개 라인을 묶을 수 있지만 센서는 라인마다 별도다.
+- 관제 대시보드는 실제 지도/디지털 트윈 위에 선박·볼라드를 표시한다. **볼라드 클릭 → 연결 위치 상세**, **계류삭 클릭 → 센서 연동·실시간 진동수·위험도·3D 홋줄 상세**를 보여준다. 실센서 이벤트가 없을 때 목업 수치를 대신 표시하지 않는다.
 
 ## 2. 권장 저장소 구조
 
@@ -297,9 +299,9 @@ IoT -> Backend, Backend 내부 이벤트, WebSocket 메시지는 공통 envelope
 
 ML 모델은 **계류삭 AE 파단 실측 논문(Bashir et al. 2017, *Applied Acoustics* 121)**
 을 근거로 한 합성 데이터셋으로 학습한다. 근거·평가·검증은 별도 문서에 있다:
-[홋줄 AE 데이터셋 평가](./rope-ae-dataset-evaluation.md) ·
-[항만 볼라드 AE 데이터셋 카드](./port-ae-dataset.md) ·
-[데이터셋 신뢰성 검증 보고서](./dataset-reliability-report.md).
+[홋줄 AE 데이터셋 평가](../ml-data/rope-ae-dataset-evaluation.md) ·
+[계류삭 연결 고리 AE 데이터셋 카드](../ml-data/port-ae-dataset.md) ·
+[데이터셋 신뢰성 검증 보고서](../ml-data/dataset-reliability-report.md).
 
 관측 가능한(배포 시 센서에서 얻는) 특징 스키마 — 항만 도메인 변환본 기준:
 
@@ -330,7 +332,7 @@ ML 모델은 **계류삭 AE 파단 실측 논문(Bashir et al. 2017, *Applied Ac
 > ⚠️ **마이그레이션 진행 중**: 현재 프론트 `LineDetail`의 AE 수치 표시는 구
 > AE-Damage-Detection 스키마(`lib/acoustic.ts` 합성값)를 유지하고 있으며, 위 홋줄 AE
 > 스키마로의 전환과 실 센서/ML 특징량 push 연동은 예정 작업이다. 이전 proxy 접근의
-> 상세 스키마는 [보관 문서](./archive/README.md)에 있다.
+> 상세 스키마는 [보관 문서](../archive/README.md)에 있다.
 
 ## 9. Backend -> Frontend REST / WebSocket 규약
 
@@ -423,10 +425,10 @@ ML 모델은 **계류삭 AE 파단 실측 논문(Bashir et al. 2017, *Applied Ac
 - `alert.sent`
 - `device.offline`
 
-### 9.4. 선박(Vessel) · 볼라드(Bollard) · 계류삭 연결
+### 9.4. 선박(Vessel) · 볼라드(Bollard) · 계류삭(Line) · 센서 연결
 
-AE 센서는 안벽 볼라드(계선주)에 고정된다. 각 계류삭(`LineStatus`)은 영구 귀속처
-`bollardId`(불변)와 접안 세션 동안만 붙는 `vesselId`(시간제)를 가진다. 대시보드 지도는
+피에조 센서는 각 계류삭 연결 고리에 부착된다. `LineStatus`는 전용 `sensorId`, 안벽 연결
+위치 `bollardId`, 접안 세션 동안만 붙는 `vesselId`를 가진다. 대시보드 지도는
 선박의 `lat`/`lon`으로 마커를 표시하고, 마커 색은 그 선박에 속한 계류삭 중 가장 높은
 위험도를 따른다.
 
@@ -453,7 +455,7 @@ AE 센서는 안벽 볼라드(계선주)에 고정된다. 각 계류삭(`LineSta
 - 계류삭 상태(`GET /v1/lines`) 응답에는 소속 선박을 가리키는 `vesselId` 필드가 포함된다.
 - 선박 생성 시 `vesselId`를 생략하면 서버가 자동 생성한다.
 
-볼라드(Bollard) 레코드 — 안벽에 고정된 영구 자산:
+볼라드(Bollard) 레코드 — 센서를 소유하지 않는 안벽 연결 지점:
 
 ```json
 {
@@ -470,7 +472,8 @@ AE 센서는 안벽 볼라드(계선주)에 고정된다. 각 계류삭(`LineSta
 
 계류삭(Line) 라이프사이클 규칙:
 
-- `bollardId`는 센서의 영구 귀속처(불변), `vesselId`는 접안 세션 동안만 붙는 시간제 연결이다.
+- `sensorId`는 계류삭 연결 고리에 부착된 AWS IoT Thing이며 한 `lineId`에만 배정한다.
+- `bollardId`는 안벽 연결 위치, `vesselId`는 접안 세션 동안만 붙는 선박 연결이다.
 - 항만 안전 기준상 **하나의 볼라드에는 최대 2개 라인**만 붙일 수 있다. 초과 시
   `BOLLARD_FULL`(HTTP 409)을 반환한다.
 - **미계선(`vesselId` 없음) 라인은 항상 `NORMAL`·`riskScore=0`**이다. 출항 처리 시 해제된
