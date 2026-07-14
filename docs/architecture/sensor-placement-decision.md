@@ -37,8 +37,8 @@
 2. 관리자가 선박과 계류삭을 등록한다.
 3. 현장 작업자가 센서를 해당 계류삭 연결 고리에 부착한다.
 4. 관리 화면에서 계류삭을 열고 AWS IoT 센서 목록에서 장비를 클릭 적용한다.
-5. 센서는 `aesentinel/{sensorId}/piezo`로 `deviceId`, `lineId`, `freqHz`를 발행한다.
-6. Backend는 등록된 `sensorId ↔ lineId`가 일치할 때만 추론을 수행한다.
+5. 센서는 `aesentinel/{sensorId}/piezo`로 `deviceId`, `freqHz`를 발행한다.
+6. Backend는 `sensorId`의 현재 배정에서 `lineId`·사이트·선석을 조회한 뒤 추론한다.
 7. 출항해도 센서 소유 관계는 계류삭에 남고, `vesselId`와 `bollardId` 운영 매핑만 변경한다.
 
 ## 데이터 모델 영향

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0.0",
+  "eventType": "piezo.frequency.detected",
+  "eventId": "evt-piezo-20260713-0001",
+  "traceId": "trc-piezo-20260713-0001",
+  "occurredAt": "2026-07-13T09:00:00.000Z",
+  "sentAt": "2026-07-13T09:00:00.120Z",
+  "source": {
+    "account": "iot",
+    "service": "esp32-piezo",
+    "deviceId": "factorypulse_gateway_01"
+  },
+  "payload": {
+    "freqHz": 28.5
+  }
+}

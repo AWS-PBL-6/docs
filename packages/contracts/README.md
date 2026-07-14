@@ -22,23 +22,35 @@ canonical source of truth 는 `AWS-PBL-6/docs` 저장소다.
 
 - `schemas/common/event-envelope.v1.json`
 - `schemas/iot/ae-feature-event.v2.json` ← **현행** (port-domain 접촉식 AE 이벤트)
+- `schemas/iot/piezo-frequency-event.v2.json` ← **현행** (센서 식별자 + 원시 진동수)
+- `schemas/iot/sensor-heartbeat.v1.json` ← **현행** (30초 주기 연결 상태 갱신)
 - `schemas/ml/inference-request.v2.json` ← **현행** (윈도 집계 modelInput)
 - `schemas/ml/inference-response.v1.json`
 - `schemas/websocket/ws-risk-message.v1.json`
+- `../../../ml/agent-response-layer/contracts/schemas/agent-request.v1.json`
+- `../../../ml/agent-response-layer/contracts/schemas/response-guidance.v1.json`
+
+> Response Guidance 계약의 canonical 파일은 RAG 구현과 함께 `ml/agent-response-layer/contracts/`에
+> 둔다. Backend는 확정 위험도만 전달하고 Response Guidance Lambda는 발송하지 않는다. 저장·WebSocket·SNS
+> 이메일·등록 SMS는 Backend 책임이다.
 
 ### v1 (보관)
 
 - `schemas/iot/ae-feature-event.v1.json` — Kaggle proxy 시대 per-event 스키마
+- `schemas/iot/piezo-frequency-event.v1.json` — 장치가 위치·계류삭 ID까지 보내던 구형 스키마
 - `schemas/ml/inference-request.v1.json` — proxy per-event modelInput
 
 > v2는 계류삭 AE 논문 기반 → 항만 도메인 모델로 전환하며 도입됐다. 센서는 각
-> 계류삭의 선박 측 연결 고리에 부착되고 `source.deviceId`는 관리자 API에서 해당
-> `payload.lineId`에 배정한 AWS IoT Thing ID와 반드시 일치해야 한다. per-event
+> 계류삭의 선박 측 연결 고리에 부착된다. Backend가 만든 내부 AE 이벤트에서는
+> `source.deviceId`가 `payload.lineId`에 배정된 AWS IoT Thing ID와 반드시 일치한다. per-event
 > 특징(`amplitudeDbAe`·`snrDb`·`hitCount`·`signalType` + 환경 공변량)과, 모델 입력이
 > **직전 W개 이벤트 윈도 집계**로 바뀐 점이 v1과의 차이다. 배경은
 > [홋줄 AE 데이터셋 평가](../../docs/ml-data/rope-ae-dataset-evaluation.md),
 > [계류삭 연결 고리 AE 데이터셋](../../docs/ml-data/port-ae-dataset.md) 참조. wire의
 > `schemaVersion`은 PoC 동안 `1.0.0`을 유지한다(파일 major만 v2).
 
-- 피에조 원시 진동수: `schemas/iot/piezo-frequency-event.v1.json`
-- 피에조 원시 예제: `examples/iot-piezo-frequency-event.v1.json`
+- 피에조 원시 진동수: `schemas/iot/piezo-frequency-event.v2.json`
+- 피에조 원시 예제: `examples/iot-piezo-frequency-event.v2.json`
+
+> 피에조 v2에서 장치는 `lineId`·`siteId`·`berthId`를 보내지 않는다. Backend가 MQTT
+> topic의 `sensorId`로 현재 `LineStatus.sensorId` 배정을 조회해 세 값을 내부 이벤트에 채운다.

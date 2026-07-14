@@ -199,8 +199,8 @@ paths:
         - name: riskLevel
           in: query
           required: false
-          schema: { $ref: "#/components/schemas/RiskLevel" }
-          description: 위험도로 필터
+          schema: { type: string, enum: [NORMAL, CAUTION, DANGER, ABNORMAL] }
+          description: 위험도로 필터. ABNORMAL은 CAUTION+DANGER 운영 이벤트
         - name: limit
           in: query
           required: false
@@ -381,7 +381,7 @@ paths:
   /v1/alerts/test:
     post:
       tags: [Alerts]
-      summary: 테스트 경보 발생 (SNS 발송 + WebSocket 브로드캐스트)
+      summary: 목업 위험 이벤트 발생 (RAG guidance + WebSocket + SNS 이메일 + 등록 SMS)
       operationId: sendTestAlert
       requestBody:
         required: false
@@ -391,13 +391,14 @@ paths:
               type: object
               properties:
                 lineId: { type: string, description: 대상 라인. 생략 시 첫 번째 라인 }
-              example: { lineId: "mooring-03" }
+                riskLevel: { type: string, enum: [CAUTION, DANGER], default: DANGER }
+              example: { lineId: "mooring-03", riskLevel: "DANGER" }
       responses:
         "201":
-          description: 생성된 테스트 경보
+          description: 생성된 목업 이벤트와 경보
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/AlertResponse" }
+              schema: { $ref: "#/components/schemas/TestAlertResponse" }
         "404":
           description: 대상 라인 없음 (`LINE_NOT_FOUND`)
           content:
@@ -755,11 +756,43 @@ components:
           allOf: [{ $ref: "#/components/schemas/SnapbackZone" }]
           nullable: true
         deviceOnline: { type: boolean, example: true }
+        lastSeenAt: { type: string, format: date-time, nullable: true, readOnly: true, description: "마지막 lifecycle/heartbeat/측정 수신 시각" }
+        lastMeasurementAt: { type: string, format: date-time, nullable: true, readOnly: true, description: "마지막으로 수락한 유효 피에조 측정의 장치 시각" }
         sensorMode: { type: string, enum: [PENDING, DEVICE, VIRTUAL], description: "계류삭별 센서 연동 상태" }
         sensorId: { type: string, nullable: true, description: "이 계류삭 연결 고리에 부착한 AWS IoT Thing ID" }
         sensorBoundAt: { type: string, format: date-time, nullable: true }
         bollardId: { type: string, nullable: true, description: "현재 안벽 연결 지점(볼라드당 최대 2개)" }
         vesselId: { type: string, nullable: true, description: "접안 세션 동안만 연결되는 선박(시간제; 없으면 항상 NORMAL)" }
+
+    GuidanceContent:
+      type: object
+      required: [riskLevel, headline, situation, immediateActions, followupActions, citations, confidence]
+      properties:
+        riskLevel: { $ref: "#/components/schemas/RiskLevel" }
+        headline: { type: string, maxLength: 90 }
+        situation: { type: string }
+        immediateActions: { type: array, items: { type: string } }
+        followupActions: { type: array, items: { type: string } }
+        citations: { type: array, items: { type: string } }
+        confidence: { type: string, enum: [HIGH, MEDIUM, LOW] }
+
+    ResponseGuidance:
+      type: object
+      required: [schemaVersion, type, traceId, eventId, generatedAt, lineId, siteId, riskLevel, riskScore, source, alertDispatched, guidance]
+      properties:
+        schemaVersion: { type: string, enum: ["1.0.0"] }
+        type: { type: string, enum: [response.guidance.generated] }
+        traceId: { type: string }
+        eventId: { type: string }
+        generatedAt: { type: string, format: date-time }
+        lineId: { type: string }
+        vesselId: { type: string, nullable: true }
+        siteId: { type: string }
+        riskLevel: { $ref: "#/components/schemas/RiskLevel" }
+        riskScore: { type: number, minimum: 0, maximum: 1 }
+        source: { type: string, enum: [KB] }
+        alertDispatched: { type: boolean, enum: [false] }
+        guidance: { $ref: "#/components/schemas/GuidanceContent" }
 
     EventRecord:
       type: object
@@ -780,15 +813,18 @@ components:
         createdAt: { type: string, format: date-time }
         features:
           type: object
-          additionalProperties: { type: number }
-          description: AE 특징값 (rms, peakAmplitude, energy, dominantFrequencyHz, riseTimeMs, durationMs)
+          additionalProperties: true
+          description: Backend 파생 AE proxy (amplitudeDbAe, freqLowKhz, freqHighKhz, durationMs, hitCount, snrDb, signalType)
         context:
           type: object
-          description: 재질/장력/환경 컨텍스트 (materialType, tensionEstimateKn, temperatureC, humidityPct)
+          description: 실측 structuralFreqHz와 파생 loadRatio 및 환경 컨텍스트
         snapbackZone:
           allOf: [{ $ref: "#/components/schemas/SnapbackZone" }]
           nullable: true
         alertMessage: { type: string, nullable: true }
+        responseGuidance:
+          allOf: [{ $ref: "#/components/schemas/ResponseGuidance" }]
+          nullable: true
         acknowledged: { type: boolean }
         acknowledgedAt: { type: string, format: date-time, nullable: true }
 
@@ -801,7 +837,7 @@ components:
         lineId: { type: string, example: mooring-03 }
         riskLevel: { $ref: "#/components/schemas/RiskLevel" }
         message: { type: string }
-        channel: { type: string, enum: [SNS, TEST] }
+        channel: { type: string, enum: [SNS_EMAIL+SMS, TEST] }
         sentAt: { type: string, format: date-time }
         traceId: { type: string }
         messageId: { type: string, nullable: true }
@@ -914,7 +950,7 @@ components:
             VALIDATION_ERROR / DUPLICATE_EVENT / ALREADY_EXISTS / LINE_NOT_FOUND /
             EVENT_NOT_FOUND / ALERT_NOT_FOUND / VESSEL_NOT_FOUND / BOLLARD_NOT_FOUND /
             BOLLARD_FULL / BOLLARD_IN_USE / LINE_SENSOR_NOT_BOUND /
-            SENSOR_LINE_MISMATCH / SENSOR_IN_USE / SENSOR_ALREADY_BOUND /
+            SENSOR_LINE_MISMATCH / SENSOR_NOT_BOUND / SENSOR_IN_USE / SENSOR_ALREADY_BOUND /
             LINE_MOORED / ROUTE_NOT_FOUND / INTERNAL_ERROR
         message: { type: string }
 
@@ -985,6 +1021,20 @@ components:
         - type: object
           properties:
             data: { $ref: "#/components/schemas/AlertRecord" }
+
+    TestAlertResponse:
+      allOf:
+        - $ref: "#/components/schemas/EnvelopeBase"
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [event, alert]
+              properties:
+                event: { $ref: "#/components/schemas/EventRecord" }
+                alert:
+                  allOf: [{ $ref: "#/components/schemas/AlertRecord" }]
+                  nullable: true
 
     AlertsResponse:
       allOf:
@@ -1139,6 +1189,7 @@ components:
         registrationStatus: { type: string, enum: [REGISTERED] }
         connectivityStatus: { type: string, enum: [CONNECTED, DISCONNECTED, UNKNOWN] }
         lastConnectedAt: { type: string, format: date-time, nullable: true }
+        lastSeenAt: { type: string, format: date-time, nullable: true, description: "Backend가 확인한 마지막 lifecycle/heartbeat/측정 시각" }
         siteId: { type: string, nullable: true }
         berthId: { type: string, nullable: true }
         assignedLineId: { type: string, nullable: true, description: 현재 전용 배정된 계류삭 }
