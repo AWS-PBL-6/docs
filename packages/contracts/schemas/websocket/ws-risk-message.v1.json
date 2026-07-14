@@ -15,6 +15,7 @@
       "type": "string",
       "enum": [
         "line.status.updated",
+        "sensor.reading.received",
         "risk.caution.detected",
         "risk.danger.detected",
         "snapback.zone.updated",
@@ -59,8 +60,19 @@
           "minimum": 0,
           "maximum": 1
         },
+        "lastEventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time"
+        },
         "snapbackZone": {
-          "type": "object",
+          "type": [
+            "object",
+            "null"
+          ],
           "additionalProperties": false,
           "required": [
             "radiusMeters",
@@ -95,6 +107,88 @@
         },
         "alertMessage": {
           "type": "string"
+        },
+        "responseGuidance": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": [
+            "schemaVersion", "type", "traceId", "eventId", "generatedAt", "lineId",
+            "siteId", "riskLevel", "riskScore", "source", "alertDispatched", "guidance"
+          ],
+          "properties": {
+            "schemaVersion": { "const": "1.0.0" },
+            "type": { "const": "response.guidance.generated" },
+            "traceId": { "type": "string" },
+            "eventId": { "type": "string" },
+            "generatedAt": { "type": "string", "format": "date-time" },
+            "lineId": { "type": "string" },
+            "vesselId": { "type": ["string", "null"] },
+            "siteId": { "type": "string" },
+            "riskLevel": { "type": "string", "enum": ["NORMAL", "CAUTION", "DANGER"] },
+            "riskScore": { "type": "number", "minimum": 0, "maximum": 1 },
+            "source": { "type": "string", "const": "KB" },
+            "alertDispatched": { "const": false },
+            "guidance": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["riskLevel", "headline", "situation", "immediateActions", "followupActions", "citations", "confidence"],
+              "properties": {
+                "riskLevel": { "type": "string", "enum": ["NORMAL", "CAUTION", "DANGER"] },
+                "headline": { "type": "string", "minLength": 1, "maxLength": 90 },
+                "situation": { "type": "string" },
+                "immediateActions": { "type": "array", "items": { "type": "string" } },
+                "followupActions": { "type": "array", "items": { "type": "string" } },
+                "citations": { "type": "array", "items": { "type": "string" } },
+                "confidence": { "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"] }
+              }
+            }
+          }
+        },
+        "smsRecipientCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deviceOnline": {
+          "type": "boolean"
+        },
+        "lastSeenAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "statusCurrent": {
+          "type": "boolean",
+          "description": "false이면 유효한 이벤트지만 더 최신 센서 측정이 현재 라인 상태를 소유함"
+        },
+        "measurement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sensorKind",
+            "eventId",
+            "freqHz"
+          ],
+          "properties": {
+            "sensorKind": {
+              "const": "PIEZO"
+            },
+            "eventId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sensorId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "freqHz": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "loadRatio": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
         }
       }
     }

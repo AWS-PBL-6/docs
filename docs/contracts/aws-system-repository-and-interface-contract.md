@@ -170,16 +170,19 @@ IoT -> Backend, Backend 내부 이벤트, WebSocket 메시지는 공통 envelope
 
 실제 계류삭 센서는 **피에조 압전 센서로 구조 진동수(Hz)만 계측**한다. 이 입력을 기존 AE
 특징량 계약에 맞추기 위해 별도 어댑터 Lambda(`app-ingest-piezo`, `handlers.piezo`)를 둔다.
-예제: `packages/contracts/examples/iot-piezo-frequency-event.v1.json`.
+예제: `packages/contracts/examples/iot-piezo-frequency-event.v2.json`.
 
-- 센서는 MQTT 토픽 `aesentinel/<site>/piezo` 로 최소 리딩을 publish한다(별도 IoT Rule → 어댑터).
+- 센서는 MQTT 토픽 `aesentinel/<sensorId>/piezo` 로 최소 리딩을 publish한다(별도 IoT Rule → 어댑터).
 
 ```json
 { "schemaVersion": "1.0.0", "eventType": "piezo.frequency.detected",
   "eventId": "evt-piezo-0001", "occurredAt": "2026-07-11T09:00:00.000Z",
-  "payload": { "siteId": "yard-a", "berthId": "berth-02", "lineId": "mooring-05", "freqHz": 28.5 } }
+  "source": { "account": "iot", "service": "esp32-piezo", "deviceId": "piezo-05" },
+  "payload": { "freqHz": 28.5 } }
 ```
 
+- IoT Rule이 topic의 `sensorId`를 주입하고, 어댑터는 Lines 테이블의 현재 센서 배정에서
+  `lineId`·`siteId`·`berthId`를 조회한다. 센서 재배정 시 펌웨어 변경은 없다.
 - 어댑터는 **taut-cable 관계(장력 T ∝ f²)** 로 진동수를 정규화 장력비 `ρ∈[0,1]`(슬랙 기준
   `FREQ_SLACK_HZ`≈8Hz ~ 파단 임박 `FREQ_CRIT_HZ`≈32Hz)로 매핑하고, 이를 AE 특징량
   (`amplitudeDbAe`·`snrDb`·`hitCount`·`durationMs`·`signalType`)으로 단조 변환하여

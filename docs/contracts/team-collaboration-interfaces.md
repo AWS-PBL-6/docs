@@ -34,7 +34,7 @@ AWS IoT Thing(sensorId) 1 ── 1 Mooring Line(lineId)
 |---|---|---|---|---|
 | 센서 등록/인증 | IoT | Backend·Frontend | AWS IoT Thing Registry | Thing 생성, 인증서·정책, `sensorId` 유지 |
 | 센서↔계류삭 배정 | Backend | IoT·Frontend | Lines DynamoDB | 중복 배정 차단, 연동 시각 기록 |
-| 진동수 원시 이벤트 | IoT | Backend | MQTT 계약 | `deviceId`, `lineId`, `freqHz`, 시간 전송 |
+| 진동수 원시 이벤트 | IoT | Backend | MQTT 계약 | `deviceId`, `freqHz`, 시간 전송 |
 | 검증·추론 오케스트레이션 | Backend | ML·Frontend | Event/Line 테이블 | 신원 검증, 윈도 조립, 상태 저장 |
 | 모델 입력/출력 | Backend | ML | inference v2/v1 스키마 | 입력 순서·응답 enum 유지 |
 | 실시간 관제 메시지 | Backend | Frontend | WebSocket v1 스키마 | 위험 갱신·경보 push |
@@ -63,6 +63,7 @@ AWS IoT Thing Registry에 실제 존재하는 피에조 센서만 반환한다.
   "source": "AWS_IOT_CORE",
   "registrationStatus": "REGISTERED",
   "connectivityStatus": "CONNECTED",
+  "lastSeenAt": "2026-07-13T09:00:00.000Z",
   "assignedLineId": null,
   "assignedBollardId": null,
   "assignedVesselId": null,
@@ -73,7 +74,8 @@ AWS IoT Thing Registry에 실제 존재하는 피에조 센서만 반환한다.
 
 - `available=true`: 새 계류삭에 선택 가능
 - `available=false`: `assignedLineId`가 이미 소유함
-- `UNKNOWN`: IoT Fleet indexing이 꺼진 상태이며 “오프라인”과 같지 않다.
+- 배정 센서는 Backend lifecycle/heartbeat 상태가 `CONNECTED|DISCONNECTED`의 기준이다.
+- `UNKNOWN`: 아직 lifecycle/heartbeat/측정 이력이 없는 센서이며 “오프라인”과 같지 않다.
 - 프론트는 `sensorId` 텍스트 입력창을 제공하지 않고 이 응답을 목록으로 표시한다.
 
 ### 3.2 계류삭 생성과 동시에 센서 배정
@@ -131,6 +133,7 @@ PENDING ──→ DEVICE
   "sensorId": "piezo-mooring-05",
   "sensorBoundAt": "2026-07-13T09:00:00.000Z",
   "deviceOnline": true,
+  "lastSeenAt": "2026-07-13T09:00:30.000Z",
   "bollardId": "bollard-05",
   "vesselId": "vessel-02",
   "riskLevel": "NORMAL",
@@ -152,15 +155,15 @@ aesentinel/{sensorId}/piezo
 aesentinel/piezo-mooring-05/piezo
 ```
 
-IoT Rule은 `topic(2)`를 `topicSensorId`로 주입한다. 메시지의
-`source.deviceId`, 토픽의 `{sensorId}`, Backend의 `LineStatus.sensorId`는 모두 같아야 한다.
+IoT Rule은 `topic(2)`를 `topicSensorId`로 주입한다. 메시지의 `source.deviceId`와 토픽의
+`{sensorId}`가 같아야 하며, Backend는 이 값으로 현재 `LineStatus.sensorId` 배정을 조회한다.
 
 ### 4.2 피에조 원시 이벤트
 
 스키마:
-[`piezo-frequency-event.v1.json`](../../packages/contracts/schemas/iot/piezo-frequency-event.v1.json)  
+[`piezo-frequency-event.v2.json`](../../packages/contracts/schemas/iot/piezo-frequency-event.v2.json)  
 예제:
-[`iot-piezo-frequency-event.v1.json`](../../packages/contracts/examples/iot-piezo-frequency-event.v1.json)
+[`iot-piezo-frequency-event.v2.json`](../../packages/contracts/examples/iot-piezo-frequency-event.v2.json)
 
 ```json
 {
@@ -176,9 +179,6 @@ IoT Rule은 `topic(2)`를 `topicSensorId`로 주입한다. 메시지의
     "deviceId": "piezo-mooring-05"
   },
   "payload": {
-    "siteId": "busan",
-    "berthId": "PNC-1",
-    "lineId": "mooring-05",
     "freqHz": 28.5,
     "ambientNoiseDb": 40.0,
     "rainMmh": 0.0,
@@ -191,29 +191,47 @@ IoT Rule은 `topic(2)`를 `topicSensorId`로 주입한다. 메시지의
 필수 필드:
 
 - envelope: `schemaVersion`, `eventType`, `eventId`, `traceId`, `occurredAt`, `sentAt`, `source`, `payload`
-- identity: `source.deviceId`, `payload.lineId`
-- location: `payload.siteId`, `payload.berthId`
+- identity: `source.deviceId`(MQTT topic의 `{sensorId}`와 동일)
 - measurement: `payload.freqHz` (`> 0`, 단위 Hz)
 
 센서는 위험도나 추정 장력을 보내지 않는다. 원시 `freqHz`만 사실값이고, 장력비·AE proxy는
 Backend 피에조 어댑터가 동일 보정 설정으로 계산한다.
 
-### 4.3 Backend 신원 검증 순서
+`lineId`, `siteId`, `berthId`는 센서 계약이 아니다. 관리자가 센서를 재배정해도 펌웨어를
+바꾸지 않도록 Backend가 Lines 테이블의 최신 배정에서 세 값을 채운다.
 
-1. `payload.lineId`가 Lines 테이블에 존재하는지 확인
-2. 라인의 `sensorMode`가 `DEVICE`인지 확인 (`VIRTUAL`은 시연 경로만 허용)
-3. `source.deviceId == LineStatus.sensorId` 확인(대소문자 무시)
+### 4.3 온라인·오프라인 계약
+
+```text
+MQTT clientId = AWS IoT Thing 이름 = sensorId
+heartbeat topic = aesentinel/{sensorId}/heartbeat
+heartbeat 주기 = 30초 / offline timeout = 120초 / sweep = 1분
+```
+
+- AWS IoT `$aws/events/presence/connected/{clientId}`: 즉시 `deviceOnline=true`
+- AWS IoT `$aws/events/presence/disconnected/{clientId}`: 즉시 `deviceOnline=false`
+- heartbeat 또는 정상 측정 수신: `deviceOnline=true`, `lastSeenAt` 갱신
+- 120초 무응답: scheduled Lambda가 `deviceOnline=false` 처리
+- 모든 변경은 `line.status.updated` 또는 `device.offline` WebSocket으로 Frontend에 push
+
+heartbeat 스키마와 예제:
+[`sensor-heartbeat.v1.json`](../../packages/contracts/schemas/iot/sensor-heartbeat.v1.json),
+[`iot-sensor-heartbeat.v1.json`](../../packages/contracts/examples/iot-sensor-heartbeat.v1.json)
+
+### 4.4 Backend 신원 검증 순서
+
+1. topic의 `{sensorId}`와 `source.deviceId`가 같은지 확인
+2. `LineStatus.sensorId`로 현재 배정 계류삭 조회
+3. 조회한 라인의 `lineId`·`siteId`·`berthId`를 내부 이벤트에 주입
 4. event schema와 수치 범위 검증
 5. `eventId` 중복 확인
 6. 검증 성공 후에만 윈도 조립·ML 추론·상태 저장
 
 | 오류 코드 | HTTP/처리 | 발생 조건 | IoT 팀 조치 |
 |---|---:|---|---|
-| `LINE_NOT_FOUND` | 404/REJECTED | 등록되지 않은 `lineId` | 관리자에게 계류삭 등록 요청 |
-| `LINE_SENSOR_NOT_BOUND` | 409/REJECTED | 라인이 `PENDING` | 센서 배정 완료 후 재전송 |
-| `SENSOR_LINE_MISMATCH` | 409/REJECTED | `deviceId`가 라인 소유 센서와 다름 | Thing 설정·lineId 확인 |
+| `SENSOR_NOT_BOUND` | 409/REJECTED | 센서에 배정된 계류삭이 없음 | 관리 화면에서 센서를 계류삭에 배정 |
 | `DUPLICATE_EVENT` | 409/REJECTED | 같은 `eventId` 재수신 | 정상적인 멱등 처리, 새 ID로 재측정 |
-| `VALIDATION_ERROR` | 400/REJECTED | 필드/단위/범위 오류 | 펌웨어 payload 수정 |
+| `VALIDATION_ERROR` | 400/REJECTED | 센서 ID 불일치 또는 필드/단위/범위 오류 | topic·펌웨어 payload 수정 |
 
 ## 5. Backend 내부 변환 → ML 계약
 
@@ -256,6 +274,7 @@ WebSocket 스키마:
 주요 타입:
 
 - `line.status.updated`
+- `sensor.reading.received` — 추론을 기다리지 않고 원시 피에조 값 즉시 전달
 - `risk.caution.detected`
 - `risk.danger.detected`
 - `snapback.zone.updated`
@@ -272,17 +291,30 @@ WebSocket 스키마:
     "lineId": "mooring-05",
     "riskLevel": "DANGER",
     "riskScore": 0.91,
-    "alertMessage": "5번 계류삭 파단 위험"
+    "lastEventId": "evt-piezo-20260713-0001",
+    "occurredAt": "2026-07-13T09:00:00.000Z",
+    "deviceOnline": true,
+    "lastSeenAt": "2026-07-13T09:00:01.000Z",
+    "measurement": {
+      "sensorKind": "PIEZO",
+      "eventId": "evt-piezo-20260713-0001",
+      "sensorId": "factorypulse_gateway_01",
+      "freqHz": 28.5,
+      "loadRatio": 0.7794
+    }
   }
 }
 ```
 
-Frontend는 메시지의 `lineId`로 기존 LineStatus를 갱신한다. 센서 소유권을
-`bollardId`로 추론하면 안 된다.
+Backend는 먼저 `sensor.reading.received`로 원시값·온라인 상태를 보내고, 추론이
+끝나면 `risk.*` 메시지로 판정값을 보낸다. Frontend는 `lineId`로 LineStatus를 즉시
+갱신하고, `lastEventId`로 영속 이벤트를 비동기 조회한다. `measurement`는 화면에 즉시 표시할 원시 피에조 값이며,
+재연결 시 REST 최신 상태로 누락 구간을 보정한다. 센서 소유권을 `bollardId`로
+추론하면 안 된다.
 
 ## 7. Backend → 알림/대응 계층 계약
 
-`DANGER` 확정 시 Backend가 SNS와 WebSocket을 발행한다. 대응 가이드/Bedrock 입력에는
+`CAUTION/DANGER` 확정 시 Backend가 Agent 안내를 받아 SNS 이메일·등록 SMS·WebSocket을 발행한다. 대응 가이드/Bedrock 입력에는
 `lineId`, `bollardId`, `vesselId`, `siteId`, 위험도와 근거 수치를 함께 전달한다.
 여기서 `bollardId`는 현장 위치 안내용이고, 센서 식별은 항상 `sensorId/lineId`로 한다.
 
@@ -294,7 +326,7 @@ Frontend는 메시지의 `lineId`로 기존 LineStatus를 갱신한다. 센서 �
 3. 선박/계류삭 등록
 4. 계류삭 연결 고리에 물리 센서 부착
 5. 계류삭 화면에서 IoT 센서 목록 → 클릭 → 선택 센서 적용
-6. 센서 펌웨어의 lineId/deviceId 확인
+6. 센서 펌웨어의 Thing 이름/topic/`source.deviceId` 확인
 7. 테스트 이벤트 발행
 8. 계류삭 상세에서 실제 freqHz 수신 확인
 ```
@@ -311,7 +343,7 @@ Frontend는 메시지의 `lineId`로 기존 LineStatus를 갱신한다. 센서 �
 2. 실제 센서를 계류삭 연결 고리로 옮겨 부착한다.
 3. 해당 `lineId`에서 `/v1/lines/{lineId}/sensor`로 다시 배정한다.
 4. 한 볼라드에 계류삭이 두 개면 센서도 두 개 준비한다.
-5. `deviceId/lineId` 일치 테스트 후 기존 볼라드 센서 필드를 폐기한다.
+5. topic 센서 ID로 현재 배정 `lineId`가 조회되는지 테스트한 후 기존 볼라드 센서 필드를 폐기한다.
 
 ## 10. 변경·검증 체크리스트
 
@@ -330,10 +362,10 @@ Frontend는 메시지의 `lineId`로 기존 LineStatus를 갱신한다. 센서 �
 
 - [ ] 센서 목록 클릭 적용 성공
 - [ ] 같은 센서를 두 계류삭에 배정하면 `SENSOR_IN_USE`
-- [ ] 올바른 `deviceId+lineId` 이벤트가 저장·추론됨
-- [ ] 다른 라인의 센서로 발행하면 `SENSOR_LINE_MISMATCH`
-- [ ] PENDING 라인 이벤트가 `LINE_SENSOR_NOT_BOUND`
+- [ ] 올바른 `deviceId+freqHz` 이벤트가 현재 배정 계류삭에 저장·추론됨
+- [ ] 미배정 센서 이벤트가 `SENSOR_NOT_BOUND`
+- [ ] topic과 `source.deviceId` 불일치가 `VALIDATION_ERROR`
 - [ ] 실센서 무이벤트 상태에서 Frontend가 목업 수치를 표시하지 않음
-- [ ] DANGER 이벤트가 WebSocket·SNS·대응 가이드까지 같은 `lineId`를 유지
+- [ ] CAUTION/DANGER 이벤트가 Agent·WebSocket·SNS 이메일·등록 SMS까지 같은 `lineId`를 유지
 
 Breaking change 절차는 [계약 변경 프로세스](contracts-change-process.md)를 따른다.

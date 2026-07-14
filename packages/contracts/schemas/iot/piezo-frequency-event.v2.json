@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PiezoFrequencyEventV2",
+  "$comment": "IoT→Backend raw reading. The device sends its immutable identity and measurement only; Backend resolves siteId, berthId and lineId from the current LineStatus.sensorId assignment.",
+  "allOf": [
+    { "$ref": "../common/event-envelope.v1.json" },
+    {
+      "type": "object",
+      "properties": {
+        "eventType": { "const": "piezo.frequency.detected" },
+        "source": {
+          "allOf": [
+            { "$ref": "../common/event-envelope.v1.json#/$defs/source" },
+            { "required": ["deviceId"] }
+          ]
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["freqHz"],
+          "properties": {
+            "freqHz": { "type": "number", "exclusiveMinimum": 0 },
+            "ambientNoiseDb": { "type": "number", "minimum": 0 },
+            "rainMmh": { "type": "number", "minimum": 0 },
+            "windMps": { "type": "number", "minimum": 0 },
+            "craneActive": { "type": "integer", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    }
+  ]
+}

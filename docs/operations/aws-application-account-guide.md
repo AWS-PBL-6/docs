@@ -14,7 +14,7 @@
 > **2026-07-13 운영 상태:** `ae-sentinel-app`은 계류삭별 센서 API로 배포됐고,
 > SageMaker Processing/Training과 Model Registry 승인 버전 1을 거친 모델
 > `ae-port-window-xgb-v1-20260713`이 endpoint `ae-sentinel-port-window`에서 서비스된다.
-> 프론트는 Amplify `main` Job 5로 수동 배포됐다. 상세 증적과 롤백 정보는
+> 프론트는 Amplify `main` Job 14로 수동 배포됐다. 상세 증적과 롤백 정보는
 > [배포·센서 마이그레이션 보고서](../reports/deployment-migration-2026-07-13.md)를 따른다.
 
 관련 문서: [권장 아키텍처](../architecture/ae_sentinel_recommended_architecture.md) · [인터페이스 계약](../contracts/team-collaboration-interfaces.md) · [REST OpenAPI](../../packages/contracts/openapi/ae-sentinel-rest.v1.yaml)
@@ -99,6 +99,7 @@ flowchart LR
 |---|---|---|---|---|
 | IngestFunction | `ae-sentinel-app-ingest` | Lambda | IoT 이벤트 검증 → 추론 오케스트레이션 → 스냅백 → 알림 → 실시간 푸시 | App |
 | PiezoIngestFunction | `ae-sentinel-app-ingest-piezo` | Lambda | 피에조(진동수 전용) 리딩 → AE 특징량 변환(T∝f²) → 동일 추론 파이프라인 | App |
+| SensorPresenceFunction | `ae-sentinel-app-sensor-presence` | Lambda | IoT 연결/해제·30초 heartbeat 반영 + 120초 timeout 오프라인 처리 | Edge↔App |
 | RestFunction | `ae-sentinel-app-rest` | Lambda | REST `/v1` 전체 라우터 | App |
 | WebSocketFunction | `ae-sentinel-app-ws` | Lambda | WebSocket `$connect`/`$disconnect` 연결 관리 | App |
 | RestApi | HTTP API `kfethf9pug` | API Gateway (HTTP) | REST 엔드포인트 (`$default` 스테이지) | App |
@@ -111,6 +112,8 @@ flowchart LR
 | DocsFunction | `ae-sentinel-app-docs` | Lambda | 공개 Swagger UI(`/docs`) + 스펙(`/openapi.yaml`) | App |
 | AlertsTopic | `ae-sentinel-app-alerts` | SNS | 작업자 경보 발송 토픽 | App |
 | IngestFunctionIotFeature | `IngestFunctionIotFeature_*` | IoT TopicRule | `SELECT * FROM 'aesentinel/+/features'` → ingest 호출 | Edge↔App |
+| SensorPresenceFunctionIot* | `SensorPresenceFunctionIot*_*` | IoT TopicRule | lifecycle connected/disconnected + `aesentinel/+/heartbeat` → 상태 Lambda | Edge↔App |
+| SensorPresenceFunctionTimeoutSweep | EventBridge Rule | Schedule | 1분마다 heartbeat timeout 점검 | App |
 | *FunctionRole | `ae-sentinel-app-*Role-<rand>` | IAM Role | 각 Lambda 실행 역할(최소 권한) | App |
 | *Permission | `ae-sentinel-app-*Permission-<rand>` | Lambda Permission | IoT/API GW가 Lambda 호출 허용 | App |
 
@@ -139,7 +142,7 @@ flowchart LR
 2. IoT Rule이 **동일 계정**에서 `ae-sentinel-app-ingest`를 호출(Lambda Permission).
 3. ingest가 스키마·범위·중복(eventId) 검증 → SageMaker(`SAGEMAKER_ENDPOINT`, 현재 미설정이라 내장 mock) 추론 → 위험도 판정.
 4. `DANGER`면 스냅백 반경/폴리곤 계산.
-5. 결과를 `-events`에 저장, `-lines` 최신 상태 갱신, `DANGER`면 `-alerts` 저장 + SNS 발송.
+5. 결과를 `-events`에 저장, `-lines` 최신 상태 갱신, `CAUTION/DANGER`면 Agent 안내·`-alerts` 저장·SNS 이메일/SMS 발송.
 6. `-ws-connections`의 모든 연결로 WebSocket 메시지 push.
 
 **조회 경로 (읽기)**
@@ -160,8 +163,8 @@ WebSocket 메시지 타입 계약: [`ws-risk-message.v1.json`](../../packages/co
 - 리소스 이름 접두사(`ae-sentinel-app-`)와 접미사(역할)만 보면 소속/용도를 안다.
 
 **김세엽 (Edge / IoT)**
-- 완료 기준: 디바이스가 `aesentinel/<sensorId>/piezo`로 피에조 원시 이벤트 계약을 지켜 publish하고 `source.deviceId`와 배정된 `lineId`를 일치시키는 것.
-- 그 뒤는 IoT Rule → `ae-sentinel-app-ingest`가 자동 처리. 토픽/계약만 맞추면 됨.
+- 완료 기준: 디바이스가 `aesentinel/<sensorId>/piezo`로 v2 피에조 원시 이벤트를 publish하고 topic과 `source.deviceId`를 일치시키는 것. `lineId`는 보내지 않음.
+- 그 뒤는 IoT Rule → `ae-sentinel-app-ingest-piezo`가 현재 센서 배정을 조회해 자동 처리. 토픽/계약만 맞추면 됨.
 - 테스트: IoT Core MQTT test client에서 예제 payload publish → CloudWatch에서 ingest 로그 확인.
 
 **서강재 (ML / AI)**

@@ -12,8 +12,9 @@
 - `source=AWS_IOT_CORE`
 - `registrationStatus=REGISTERED`
 - `available=true|false` 및 현재 배정 계류삭
-- Fleet indexing 사용 시 `connectivityStatus=CONNECTED|DISCONNECTED`
-- Fleet indexing 미사용 시 `UNKNOWN` (등록됨을 온라인으로 오인하지 않음)
+- 배정 후 lifecycle/heartbeat/측정 이력이 있으면 `connectivityStatus=CONNECTED|DISCONNECTED`
+- 아직 상태 이력이 없으면 `UNKNOWN` (등록됨을 온라인으로 오인하지 않음)
+- `lastSeenAt`: Backend가 마지막으로 확인한 lifecycle/heartbeat/측정 수신 시각
 
 프론트는 관리자가 센서 ID를 직접 입력하지 못하게 하고, 이 목록에서 장비를
 클릭한 뒤 적용하도록 한다. 이전 볼라드 레코드에 남은 수동/목업 센서 ID는
@@ -34,7 +35,11 @@
 3. `inference_service.run()` 이 최근 윈도우를 묶어 SageMaker(또는 로컬 모델) 추론
 4. 결과를 `EventRecord` 로 저장하고, `LineStatus` 최신 상태를 갱신
 5. WebSocket 으로 대시보드에 즉시 push
-6. 최종 위험도가 `DANGER` 이면 스냅백 구역 계산 + SNS 경보 발송
+6. `CAUTION/DANGER`이면 Agent 안내 + SNS 이메일/등록 SMS, `DANGER`이면 스냅백 구역 추가 계산
+
+온라인 상태는 별도 `sensor-presence` Lambda가 관리한다. AWS IoT 연결/해제 lifecycle
+이벤트를 즉시 반영하고 `aesentinel/{sensorId}/heartbeat`를 30초마다 받는다. 측정값도
+heartbeat로 인정하며 120초 동안 아무 활동이 없으면 1분 주기 점검에서 오프라인 처리한다.
 
 ### 2.2 현재 위험도 판정 기준
 
@@ -67,7 +72,7 @@
 
 ## 3. SNS / SMS 연동 방안
 
-현재 백엔드는 `DANGER` 이벤트에서 `alert_service.dispatch()` 를 통해 기존 SNS topic
+현재 백엔드는 `CAUTION/DANGER` 이벤트에서 `alert_service.dispatch()` 를 통해 기존 SNS topic
 발행을 유지하고, `/v1/sms-recipients` 테이블의 활성/동의 수신자에게 직접 SMS 를
 fan-out 한다.
 
@@ -132,14 +137,15 @@ rho = (f^2 - 8^2) / (32^2 - 8^2)
 - 위험: `>= 26.4 Hz`
 - 임계 상단 참고선: `32.0 Hz`
 
-주의:
+운영 판정:
 
-- 이 값은 **센서 운영 가이드선**이다.
-- 실제 이벤트의 `NORMAL/CAUTION/DANGER` 는 이 값만으로 확정되지 않는다.
-- 최종 판정은 ML 추론 + 최근 5개 이벤트의 temporal policy 를 함께 반영한다.
+- 피에조 장치가 제공하는 유일한 실측값은 `freqHz`이며 AE 특징도 이 값에서 파생된다.
+- 따라서 ML/temporal 결과가 저주파 정상값을 `CAUTION`으로 바꾸지 못하도록 위 3개
+  장력비 구간을 최종 판정에 적용한다(`piezo-frequency-policy-v1`).
+- `riskScore`는 최종 장력비 `rho`를 사용한다. 예: `1.0 Hz → NORMAL / 0.00`.
 
-참고로 현재 backend 의 `dangerThreshold=0.70`, `highConfidenceDanger=0.85` 를
-주파수 축으로 단순 환산하면 대략 아래 수준이다.
+참고로 ML 분석 내부의 `dangerThreshold=0.70`, `highConfidenceDanger=0.85` 를
+주파수 축으로 단순 환산하면 아래 수준이지만, 피에조 운영 최종 판정은 위 구간을 따른다.
 
 - DANGER 승격이 본격화되는 구간: 약 `27.1 Hz`
 - 고신뢰 DANGER 직행 구간: 약 `29.6 Hz`
