@@ -14,7 +14,7 @@
 
 | 항목 | 기본값 | 처리 |
 |---|---:|---|
-| 활성 주파수 하한 | `8.0 Hz` | 미만은 `TELEMETRY_ONLY` — 원시 측정은 `sensor.reading.received`로 실시간 발행하되 ML 추론·이벤트 생성은 건너뜀 |
+| 활성 주파수 하한 | `1.0 Hz` | 미만은 `TELEMETRY_ONLY` — 원시 측정은 `sensor.reading.received`로 실시간 발행하되 ML 추론·이벤트 생성은 건너뜀 |
 | 최대 지연 | `30초` | 초과는 `IGNORED/STALE_READING` |
 | 미래 시각 허용 | `5초` | 초과는 `IGNORED/FUTURE_READING` |
 | 역순 측정 | 마지막 유효 측정 이하 | `IGNORED/OUT_OF_ORDER_READING` |
@@ -33,8 +33,24 @@
 (`frontend/src/lib/piezo.ts`의 `piezoAeEstimate`, T ∝ f² 동일 보정 상수).
 
 환경변수는 `PIEZO_MIN_ACTIVE_HZ`, `PIEZO_MAX_EVENT_AGE_SECONDS`,
-`PIEZO_MAX_FUTURE_SKEW_SECONDS`다. 8 Hz는 현재 PoC slack 보정 기준이므로 현장 기준선 측정 후
-센서별 캘리브레이션 값으로 바꿔야 한다.
+`PIEZO_MAX_FUTURE_SKEW_SECONDS`다.
+
+### 2026-07-15 개정: 시연용 주파수 대역 확정
+
+시연 하드웨어의 정수 Hz 판독에 맞춰 위험도는 측정 주파수를 직접 컷한다
+(백엔드 `inference_service` 피에조 정책 v2 = 프론트 `piezoBand` 동일):
+
+| 측정 주파수 | 판정 |
+|---|---|
+| `< 1 Hz` | 유휴 대역 — `TELEMETRY_ONLY`, 추론 없음 |
+| `1 ~ 3 Hz 미만` | `NORMAL` |
+| `3 ~ 6 Hz 미만` | `CAUTION` |
+| `6 Hz 이상` | `DANGER` (SNS 이메일 + SMS 발송) |
+
+보정 상수도 같은 범위로 재설정: `PIEZO_FREQ_SLACK_HZ=1.0`,
+`PIEZO_FREQ_CRIT_HZ=6.0` (loadRatio는 1 Hz→0, 6 Hz→1). 대역 컷은
+`PIEZO_NORMAL_MAX_HZ`(3.0)·`PIEZO_CAUTION_MAX_HZ`(6.0)로 배포별 튜닝 가능하며,
+현장 기준선 측정 후 센서별 캘리브레이션 값으로 바꿔야 한다.
 
 ## 이벤트 탭
 
