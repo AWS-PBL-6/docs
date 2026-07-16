@@ -22,7 +22,7 @@
             "siteId": { "type": "string", "minLength": 1 },
             "berthId": { "type": "string", "minLength": 1 },
             "lineId": { "type": "string", "minLength": 1 },
-            "freqHz": { "type": "number", "exclusiveMinimum": 0 },
+            "freqHz": { "type": "number", "minimum": 0 },
             "ambientNoiseDb": { "type": "number", "minimum": 0 },
             "rainMmh": { "type": "number", "minimum": 0 },
             "windMps": { "type": "number", "minimum": 0 },
