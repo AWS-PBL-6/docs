@@ -184,7 +184,7 @@ IoT -> Backend, Backend 내부 이벤트, WebSocket 메시지는 공통 envelope
 - IoT Rule이 topic의 `sensorId`를 주입하고, 어댑터는 Lines 테이블의 현재 센서 배정에서
   `lineId`·`siteId`·`berthId`를 조회한다. 센서 재배정 시 펌웨어 변경은 없다.
 - 어댑터는 **taut-cable 관계(장력 T ∝ f²)** 로 진동수를 정규화 장력비 `ρ∈[0,1]`(슬랙 기준
-  `FREQ_SLACK_HZ`≈8Hz ~ 파단 임박 `FREQ_CRIT_HZ`≈32Hz)로 매핑하고, 이를 AE 특징량
+  `FREQ_SLACK_HZ`=1Hz ~ 파단 임박 `FREQ_CRIT_HZ`=6Hz, 2026-07-15 시연 보정)로 매핑하고, 이를 AE 특징량
   (`amplitudeDbAe`·`snrDb`·`hitCount`·`durationMs`·`signalType`)으로 단조 변환하여
   `ae-feature-event.v2`를 생성한 뒤 **동일한 검증→추론(SageMaker)→스냅백→알림 파이프라인**에 태운다.
 - 실측 진동수와 장력비는 이벤트 `context`(`sensorKind:"piezo"`, `structuralFreqHz`, `loadRatio`)에

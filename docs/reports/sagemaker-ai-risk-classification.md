@@ -1,0 +1,199 @@
+# 나) SageMaker 기반 AI 위험 상태 분류
+
+## 1) 구현 목적
+
+센서에서 수집된 계류삭 진동·음향방출(AE) 이벤트 스트림을 입력으로, 계류삭의 위험
+상태를 **NORMAL(정상) / CAUTION(주의) / DANGER(위험)** 3단계로 실시간 분류하는 AI
+추론 시스템을 구축하였음. 단일 측정값에 대한 임계값 규칙만으로는 파단 전조의 복합
+패턴(신호군 조성 변화, 이벤트 발생률 상승, 진폭·히트 통계의 동반 상승)을 포착하기
+어렵기 때문에, 시계열 윈도 집계 특징을 학습한 머신러닝 모델을 Amazon SageMaker
+엔드포인트로 서빙하고 그 판정 결과를 스냅백 위험구역 계산, SNS 이메일·SMS 경보,
+RAG 대응지침 생성의 트리거로 사용함.
+
+- 전체 처리 과정
+
+AWS IoT Core → IoT Rule → AWS Lambda(수집·검증) → 직전 이벤트 윈도 특징 집계 →
+**SageMaker Serverless Endpoint(XGBoost 분류)** → 시간적 정책(히스테리시스) 후처리 →
+DynamoDB 저장 → WebSocket 대시보드 갱신 · SNS 이메일/SMS 경보
+
+---
+
+## 2) 아키텍처 선정 이유
+
+SageMaker :
+
+- Processing(전처리·검증) → Training(학습) → Model Registry(버전·승인 관리) →
+  Endpoint(서빙)까지 ML 수명주기를 관리형 서비스 하나로 일원화할 수 있어 별도 학습
+  서버·서빙 서버 운영 부담이 없음
+- **Serverless Inference** 방식을 채택하여 호출량 기반 과금으로 PoC 단계의 비용을
+  최소화하고, 트래픽 증가 시에도 인프라 변경 없이 자동 확장 가능
+- Model Registry의 승인(Approved) 워크플로로 검증된 모델 버전만 운영 엔드포인트에
+  배포되도록 통제 가능
+- 백엔드 Lambda는 엔드포인트 이름(`SAGEMAKER_ENDPOINT`) 환경변수만 참조하므로,
+  모델 교체·재학습 시 백엔드 코드 수정 없이 엔드포인트 전환만으로 반영 가능
+- 엔드포인트 미연결 상태에서는 백엔드 내장 대체 분류기로 동작하도록 구성하여 모델
+  개발과 백엔드·프론트 개발이 서로를 차단하지 않음
+
+---
+
+## 3) 모델 및 서빙 구성
+
+위험 상태 분류기는 다음과 같이 구성
+
+| 구성요소 | 내용 |
+| --- | --- |
+| 알고리즘 | XGBoost 3-class 분류 (`multi:softprob`) |
+| 입력 | 직전 12개 이벤트의 윈도 집계 특징 17개 (고정 순서) |
+| 확률 보정 | 온도 스케일링(temperature scaling) |
+| 위험 점수 | riskScore = 0.5·P(주의) + 1.0·P(위험) — 기대 심각도 |
+| 모델 버전 | `ae-port-window-xgb-v1` |
+| 서빙 | SageMaker Serverless Endpoint `ae-sentinel-port-window` (메모리 3,072MB, 최대 동시성 5) |
+| 산출물 | `model_artifact.json`(특징 계약·정책 동봉), `port_window_xgb.json`(부스터) |
+
+---
+
+## 4) 위험 상태 분류 방식
+
+모델은 개별 이벤트가 아니라 **직전 N개 이벤트의 시계열 윈도**를 판정 단위로 사용
+(윈도 크기 12, 최소 3개 이벤트부터 추론 시작). 윈도마다 아래 17개 특징을 집계하며,
+학습 측과 서빙 측(백엔드 Lambda)이 동일한 특징 조립 코드 계약(`WINDOW_SPEC_VERSION
+1.0.0`)을 공유하여 학습·서빙 불일치를 방지함.
+
+| 특징 그룹 | 특징 | 의미 |
+| --- | --- | --- |
+| 진폭 통계 | `amp_mean`, `amp_max` | 윈도 내 AE 진폭(dB) 평균·최대 |
+| 신호 품질 | `snr_mean`, `snr_max` | 신호 대 잡음비 평균·최대 |
+| 히트 통계 | `hit_sum`, `hit_max`, `dur_max` | AE 히트 수 합계·최대, 최대 지속시간 |
+| 신호군 조성 | `n_low`, `n_med`, `n_high`, `n_lhf` | 저·중·고진폭, 저→고주파 신호 개수 |
+| 주파수·발생률 | `fhigh_max`, `rate` | 상한 주파수 최대값, 분당 이벤트 발생률 |
+| 환경 맥락 | `noise`, `rain`, `wind`, `crane` | 배경소음·강우·풍속·크레인 가동 여부 |
+
+모델 출력(클래스 확률)은 그대로 사용하지 않고 **시간적 정책(temporal policy)** 을
+후처리로 적용함. riskScore에 대한 경보 임계(warn 0.35 / danger 0.70)와 최근 윈도
+점수의 지수이동평균(EMA), 연속 초과 횟수 요건, 해제 임계(히스테리시스)를 결합해
+순간 스파이크 1회로 인한 오경보와 경보 상태의 잦은 진동(chattering)을 억제함.
+
+또한 주파수 단일 측정 하드웨어(피에조 게이트웨이) 경로에는 측정 주파수 대역을
+최종 판정으로 삼는 가드 정책을 두어(시연 보정: 1–2 Hz 정상 / 3–5 Hz 주의 /
+6 Hz 이상 위험), 프록시 변환·모델 아티팩트로 인해 저주파 정상 판독이 주의로
+승격되는 일이 없도록 함.
+
+---
+
+## 5) 학습 데이터 구성
+
+실제 계류삭 파단 AE 실측 데이터는 공개 데이터가 없어, 계류삭 AE 파단 실측 논문
+(Bashir et al. 2017, *Applied Acoustics* 121)의 통계 특성을 근거로 한 합성
+데이터셋을 사용하였음. 합성 원본은 수중 하이드로폰 계측 도메인이므로, 다음 변환을
+거쳐 **항만 현장의 계류삭 부착 피에조 센서 도메인**으로 재구성함
+(`port_domain_synthesis.py`).
+
+- 계측 단위 변환 및 센서-음원 거리 감쇠 반영
+- 검출 임계 부근의 부동(floating) 검출 특성 주입
+- 크레인 가동·강우·바람 등 항만 배경 교란 주입
+- 모든 가정 파라미터를 코드 한 곳(`PARAMS`)에 집약하여 실측 수집 후 재보정 가능하도록 구성
+
+라벨 누수 방지를 위해 시험 장비 좌표·하중비·절대시간 등 배포 환경에서 얻을 수 없는
+`Truth_*` 계열 정보는 학습 입력에서 제외함.
+
+---
+
+## 6) 학습·검증 및 배포 파이프라인
+
+학습 검증은 같은 세션의 데이터가 학습·평가에 동시에 들어가는 것을 막기 위해
+**세션 단위 GroupKFold(5-fold)** 로 수행하였고, 평가는 안전 시스템 특성상 위험
+클래스 재현율(놓치지 않는 것)을 최우선 지표로 삼음.
+
+| 지표 (out-of-fold) | 결과 |
+| --- | --- |
+| 정확도 | 0.873 |
+| macro-F1 | 0.876 |
+| **위험(DANGER) 재현율** | **0.97** |
+| 위험(DANGER) 정밀도 | 1.00 |
+
+배포는 SageMaker 관리형 파이프라인으로 수행함 (2026-07-13 운영 반영).
+
+① Processing Job — 원천 CSV의 계약·라벨 검증 및 세션/시간순 학습 입력 생성
+② Training Job — `ml.m5.large`에서 윈도 XGBoost 학습 (과금 기준 150초)
+③ Model Registry — `ae-sentinel-line-eye-models`에 버전 등록 후 승인(Approved)
+④ Serverless Endpoint — 승인 모델만 `ae-sentinel-port-window`로 배포 (`InService`)
+
+Serverless 특성상 콜드스타트가 약 24초(웜 상태 약 1.5초) 발생하므로, 백엔드는 원시
+측정 텔레메트리를 추론 완료 전에 먼저 WebSocket으로 발행해 대시보드 갱신이 추론
+지연에 영향받지 않도록 구성함. 병렬 Lambda의 순서 역전(늦게 끝난 과거 추론이 최신
+상태를 덮어쓰는 문제)은 측정 시각 조건부 갱신으로 방지함.
+
+---
+
+## 7) 추론 요청/응답 데이터 구조
+
+백엔드와 모델 간 인터페이스는 JSON Schema 계약으로 고정함
+(`inference-request.v2`, `inference-response.v1`).
+
+- 요청 (Lambda → SageMaker)
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "requestId": "req-고유식별자",
+  "traceId": "trc-고유식별자",
+  "eventId": "evt-고유식별자",
+  "modelInput": {
+    "amp_mean": 62.4, "amp_max": 78.1,
+    "snr_mean": 31.2, "snr_max": 48.5,
+    "hit_sum": 84, "hit_max": 19, "dur_max": 3.1,
+    "n_low": 3, "n_med": 5, "n_high": 4, "n_lhf": 2,
+    "fhigh_max": 182.0, "rate": 6.5,
+    "noise": 42.0, "rain": 0.0, "wind": 7.5, "crane": 1
+  }
+}
+```
+
+- 응답 (SageMaker → Lambda)
+
+```json
+{
+  "schemaVersion": "1.0.0",
+  "requestId": "req-고유식별자",
+  "traceId": "trc-고유식별자",
+  "riskLevel": "DANGER",
+  "riskScore": 0.91,
+  "classProbabilities": { "NORMAL": 0.03, "CAUTION": 0.12, "DANGER": 0.85 },
+  "modelVersion": "ae-port-window-xgb-v1",
+  "inferenceMs": 41
+}
+```
+
+| 필드 | 설명 |
+| --- | --- |
+| `modelInput` | 윈도 집계 특징 17개 (순서는 아티팩트의 `featureSpec.runtimeFeatureNames`와 일치) |
+| `riskLevel` | 3단계 위험 상태 분류 결과 (NORMAL / CAUTION / DANGER) |
+| `riskScore` | 0~1 기대 심각도 점수 — 시간적 정책·스냅백 반경 계산에 사용 |
+| `classProbabilities` | 온도 스케일링으로 보정된 클래스별 확률 |
+| `modelVersion` | 판정에 사용된 모델 버전 (감사·재현용) |
+| `inferenceMs` | 모델 추론 소요 시간(ms) |
+
+---
+
+## 8) 한계점 및 개선 방향
+
+현재 시스템은 제한된 환경에서 AI 분류 파이프라인의 동작을 검증하기 위한 PoC로,
+다음과 같은 한계가 있음.
+
+첫째, 학습 데이터가 실측 논문 통계 기반의 합성 데이터이므로 실제 항만·계류삭
+환경의 분포와 차이가 있을 수 있음. 도메인 변환 가정 파라미터를 한 곳에 집약해
+두었으므로, 실센서 수집 데이터 확보 후 재보정·재학습이 필요함.
+
+둘째, 현재 시연 하드웨어는 진동 주파수 단일 값만 측정하므로 모델 입력 AE 특징은
+taut-cable 관계(T ∝ f²) 기반 프록시 변환값임. 이 간극은 주파수 대역 가드 정책으로
+보완하고 있으나, 근본적으로는 고속 샘플링·FFT 기반 실제 AE 계측 하드웨어 도입 시
+모델 입력을 실측 특징으로 대체해야 함.
+
+셋째, Serverless Endpoint는 유휴 후 첫 호출에 약 24초의 콜드스타트가 발생함.
+시연·운영 전 워밍업 호출로 완화하고 있으며, 상시 운영 단계에서는 Provisioned
+Concurrency 또는 소형 상시 인스턴스와의 비용·지연 비교가 필요함.
+
+넷째, 윈도 판정 특성상 라인당 최소 3개 이벤트가 쌓여야 첫 추론이 가능하고, 배포
+후 입력 분포 변화(드리프트)를 자동 감지하는 체계가 없음. 향후 SageMaker Model
+Monitor 기반 드리프트 감시와 재학습 파이프라인 자동화(스케줄 학습 → Registry 승인 →
+엔드포인트 갱신)를 적용하여 모델 품질을 지속 관리할 수 있음.

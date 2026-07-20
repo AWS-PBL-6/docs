@@ -239,7 +239,7 @@ heartbeat 스키마와 예제:
 
 - 실제 측정값 보존: `context.sensorKind=piezo`, `context.structuralFreqHz`
 - 파생값: `context.loadRatio`
-- 현재 PoC 변환: `T ∝ f²`, 기본 보정 `slack=8 Hz`, `critical=32 Hz`
+- 현재 PoC 변환: `T ∝ f²`, 기본 보정 `slack=1 Hz`, `critical=6 Hz` (2026-07-15 시연 대역: 1–2 NORMAL / 3–5 CAUTION / 6+ DANGER)
 - 모델 입력: 한 이벤트가 아니라 같은 `lineId`의 최근 이벤트 윈도 17개 집계 피처
 
 계약 파일:
