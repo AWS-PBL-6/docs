@@ -143,7 +143,7 @@
 |---|---|
 | AWS 계정 / 리전 | `727847798739` / `ap-northeast-2` |
 | REST API | `https://kfethf9pug.execute-api.ap-northeast-2.amazonaws.com` (`/v1/...`, Swagger `/docs`) |
-| WebSocket | `wss://h268o748jg.execute-api.ap-northeast-2.amazonaws.com/prod` |
+| WebSocket | `wss://<ws-api-id>.execute-api.ap-northeast-2.amazonaws.com/prod` |
 | SageMaker 엔드포인트 | `ae-sentinel-port-window` (서버리스) |
 | 프론트(대시보드) | `https://main.ddcrzjuu5yfnn.amplifyapp.com` |
 | 운영자 로그인(데모) | `operator@ae-sentinel.local` / `Sentinel#2026` *(데모용, 운영 전 교체 권장)* |
