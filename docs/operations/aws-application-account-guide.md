@@ -5,13 +5,18 @@
 > 이 문서는 **실제로 배포된** Application 백엔드(`ae-sentinel-app` 스택)의 구조와
 > 리소스 이름의 의미, 그리고 팀원별로 이것을 어떻게 이해/사용해야 하는지를 정리한다.
 >
-> - 계정: **727847798739** (단일 팀 계정)
+> - 계정: **814663755627** (단일 팀 계정)
 > - 리전: **ap-northeast-2 (서울)**
 > - 배포 방식: **AWS SAM** — `backend/infra/application-account/template.yaml`
 > - 스택 이름: **`ae-sentinel-app`**
-> - 최종 확인: 2026-07-13 (SAM·Amplify·SageMaker·센서 마이그레이션 실배포)
+> - AWS CLI 프로필: **`ae-sentinel-v2`**
+> - 최종 확인: 2026-11-16 (계정 초기화 후 새 계정 전체 복원)
 
-> **2026-07-13 운영 상태:** `ae-sentinel-app`은 계류삭별 센서 API로 배포됐고,
+> **2026-11-16 계정 이전:** 기존 계정 `727847798739`의 리소스 삭제로 새 계정에 전체 스택을
+> 다시 배포했습니다. 리소스 ID 변경 내역과 미완료 항목은
+> [계정 복원 보고서](../reports/account-restore-2026-11-16.md)를 따르십시오.
+
+> **2026-07-13 운영 상태(기존 계정 기준):** `ae-sentinel-app`은 계류삭별 센서 API로 배포됐고,
 > SageMaker Processing/Training과 Model Registry 승인 버전 1을 거친 모델
 > `ae-port-window-xgb-v1-20260713`이 endpoint `ae-sentinel-port-window`에서 서비스된다.
 > 프론트는 Amplify `main` Job 14로 수동 배포됐다. 상세 증적과 롤백 정보는
@@ -43,7 +48,7 @@ flowchart LR
         REST["Lambda: ae-sentinel-app-rest<br/>REST /v1 라우터"]
         WS["Lambda: ae-sentinel-app-ws<br/>WebSocket 연결관리"]
 
-        HTTPAPI["HTTP API (REST)<br/>id: kfethf9pug"]
+        HTTPAPI["HTTP API (REST)<br/>id: 7vrzqs3ekb"]
         WSAPI["WebSocket API<br/>id: <ws-api-id> · stage: prod"]
 
         LINES[("DynamoDB<br/>ae-sentinel-app-lines")]
@@ -87,7 +92,7 @@ flowchart LR
 - **접두사 `ae-sentinel-app-`** = 이 Application 스택 소유 리소스라는 뜻. (`ae-sentinel-app` 은 SAM 스택 이름이고, 대부분의 물리 이름은 `${스택이름}-<역할>` 형태로 자동 생성된다.)
 - **역할 접미사**로 용도를 구분한다: `-lines / -events / -alerts / -ws-connections / -vessels`(DynamoDB), `-ingest / -rest / -ws / -docs`(Lambda), `-alerts`(SNS 토픽).
 - **IAM 역할·권한·IoT 규칙**은 CloudFormation이 뒤에 랜덤 접미사를 붙인다 (예: `...-IngestFunctionRole-flp8mNPm0GyX`). 이 랜덤 값은 **재배포 시 바뀔 수 있으니 어디에도 하드코딩하지 말 것**. 참조는 논리 이름(아래 표의 "논리 ID")이나 스택 출력값을 쓴다.
-- **API Gateway ID**(`kfethf9pug`, `<ws-api-id>`)는 생성 시 자동 부여된 식별자다. URL은 스택 출력값(`RestApiUrl`, `WebSocketConnectUrl`)으로 확인한다.
+- **API Gateway ID**(`7vrzqs3ekb`, `<ws-api-id>`)는 생성 시 자동 부여된 식별자다. URL은 스택 출력값(`RestApiUrl`, `WebSocketConnectUrl`)으로 확인한다.
 
 > 요약: `ae-sentinel-app-*` 로 시작하면 "우리 백엔드 스택 리소스", 접미사로 "무슨 역할"인지 읽으면 된다.
 
@@ -102,7 +107,7 @@ flowchart LR
 | SensorPresenceFunction | `ae-sentinel-app-sensor-presence` | Lambda | IoT 연결/해제·30초 heartbeat 반영 + 120초 timeout 오프라인 처리 | Edge↔App |
 | RestFunction | `ae-sentinel-app-rest` | Lambda | REST `/v1` 전체 라우터 | App |
 | WebSocketFunction | `ae-sentinel-app-ws` | Lambda | WebSocket `$connect`/`$disconnect` 연결 관리 | App |
-| RestApi | HTTP API `kfethf9pug` | API Gateway (HTTP) | REST 엔드포인트 (`$default` 스테이지) | App |
+| RestApi | HTTP API `7vrzqs3ekb` | API Gateway (HTTP) | REST 엔드포인트 (`$default` 스테이지) | App |
 | WebSocketApi | WebSocket API `<ws-api-id>` | API Gateway (WS) | 실시간 푸시 (`prod` 스테이지) | App |
 | LinesTable | `ae-sentinel-app-lines` | DynamoDB | 계류삭 최신 상태 (PK `lineId`) | App |
 | EventsTable | `ae-sentinel-app-events` | DynamoDB | 이벤트 이력 (PK `eventId`) | App |
@@ -121,15 +126,15 @@ flowchart LR
 
 | 출력 | 값 |
 |---|---|
-| `RestApiUrl` | `https://kfethf9pug.execute-api.ap-northeast-2.amazonaws.com` (경로 앞에 `/v1`) |
+| `RestApiUrl` | `https://7vrzqs3ekb.execute-api.ap-northeast-2.amazonaws.com` (경로 앞에 `/v1`) |
 | `WebSocketConnectUrl` | `wss://<ws-api-id>.execute-api.ap-northeast-2.amazonaws.com/prod` |
 | `WebSocketCallbackUrl` | `https://<ws-api-id>.execute-api.ap-northeast-2.amazonaws.com/prod` (백엔드가 push에 사용) |
-| `AlertsTopicArn` | `arn:aws:sns:ap-northeast-2:727847798739:ae-sentinel-app-alerts` |
+| `AlertsTopicArn` | `arn:aws:sns:ap-northeast-2:814663755627:ae-sentinel-app-alerts` |
 
 > 언제든 최신 값 확인:
 > ```bash
 > aws cloudformation describe-stacks --stack-name ae-sentinel-app \
->   --region ap-northeast-2 --profile ae-sentinel \
+>   --region ap-northeast-2 --profile ae-sentinel-v2 \
 >   --query "Stacks[0].Outputs" --output table
 > ```
 
@@ -183,19 +188,19 @@ WebSocket 메시지 타입 계약: [`ws-risk-message.v1.json`](../../packages/co
 
 ```bash
 # 재배포 (코드/템플릿 변경 후) — backend/infra/application-account 에서
-sam build && sam deploy --profile ae-sentinel
+sam build && sam deploy --profile ae-sentinel-v2
 
 # ML/Bedrock/이메일 연결 시 파라미터 지정 예
-sam deploy --profile ae-sentinel --parameter-overrides \
+sam deploy --profile ae-sentinel-v2 --parameter-overrides \
   SageMakerEndpointName=ae-sentinel-endpoint \
   BedrockModelId=anthropic.claude-3-haiku-20240307-v1:0 \
   AlertEmail=team@example.com
 
 # 함수 로그 실시간 보기
-sam logs --stack-name ae-sentinel-app --name IngestFunction --tail --profile ae-sentinel
+sam logs --stack-name ae-sentinel-app --name IngestFunction --tail --profile ae-sentinel-v2
 
 # 전체 스택 삭제 (모든 리소스 제거)
-sam delete --stack-name ae-sentinel-app --profile ae-sentinel
+sam delete --stack-name ae-sentinel-app --profile ae-sentinel-v2
 ```
 
 **비용**: 전부 종량제(Lambda / DynamoDB on-demand / API Gateway / SNS) + IoT Rule. 유휴 시 사실상 0원, 호출량만큼만 과금. 상시 과금(EC2/NAT) 없음.

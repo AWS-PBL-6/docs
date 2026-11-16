@@ -6,4 +6,5 @@
 - [진행 보고서 (2026-07-08~09)](progress-report-2026-07-09.md)
 - [프로덕션 배포·센서 마이그레이션 보고서 (2026-07-13)](deployment-migration-2026-07-13.md)
 - [AWS 비용 최적화 마이그레이션 요약 (2026-07-22~23)](aws-cost-optimization-migration-2026-07-23.md)
+- [AWS 계정 복원 보고서 (2026-11-16)](account-restore-2026-11-16.md)
 - [부산대학교 클라우드 AI PBL 원본 기획서 파싱본](pnu-cloud-ai-pbl-proposal-parsed.md)
