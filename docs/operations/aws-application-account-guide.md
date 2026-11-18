@@ -115,6 +115,7 @@ flowchart LR
 | ConnectionsTable | `ae-sentinel-app-ws-connections` | DynamoDB | WebSocket 연결 ID (PK `connectionId`) | App |
 | VesselsTable | `ae-sentinel-app-vessels` | DynamoDB | 선박 정보 (PK `vesselId`, 위·경도 포함) | App |
 | DocsFunction | `ae-sentinel-app-docs` | Lambda | 공개 Swagger UI(`/docs`) + 스펙(`/openapi.yaml`) | App |
+| PreSignUpFunction | `ae-sentinel-app-presignup` | Lambda | Cognito 자체 가입 시 SSM 허용 이메일 목록 검사 | App |
 | AlertsTopic | `ae-sentinel-app-alerts` | SNS | 작업자 경보 발송 토픽 | App |
 | IngestFunctionIotFeature | `IngestFunctionIotFeature_*` | IoT TopicRule | `SELECT * FROM 'aesentinel/+/features'` → ingest 호출 | Edge↔App |
 | SensorPresenceFunctionIot* | `SensorPresenceFunctionIot*_*` | IoT TopicRule | lifecycle connected/disconnected + `aesentinel/+/heartbeat` → 상태 Lambda | Edge↔App |
@@ -205,7 +206,21 @@ sam delete --stack-name ae-sentinel-app --profile ae-sentinel-v2
 
 **비용**: 전부 종량제(Lambda / DynamoDB on-demand / API Gateway / SNS) + IoT Rule. 유휴 시 사실상 0원, 호출량만큼만 과금. 상시 과금(EC2/NAT) 없음.
 
-**보안 (현재 상태)**: REST API에 **아직 인증이 없다**(공개). 프론트 작업과 함께 **Cognito JWT authorizer**를 붙일 예정. 그 전까지 URL 공유에 주의.
+**보안 (현재 상태)**: REST `/v1/*`는 Cognito JWT authorizer로 보호됩니다. 인증 없이 호출할 수 있는 경로는 `/docs`와 `/openapi.yaml`뿐입니다.
+
+### 사용자 계정 (Cognito)
+
+- 자체 회원가입은 허용 이메일 목록에 있는 주소만 가능합니다. Pre sign-up Lambda `ae-sentinel-app-presignup`이 가입 시점마다 SSM 파라미터 `/ae-sentinel/signup-allowed-emails`(쉼표 구분)를 조회합니다.
+- 파라미터가 없거나 비어 있으면 모든 자체 가입을 거부합니다. 관리자가 `admin-create-user`로 만든 계정은 목록 검사를 건너뜁니다.
+- 목록 변경은 재배포 없이 즉시 반영됩니다. 이메일은 개인정보이므로 git에 기록하지 마십시오.
+- 앱에는 권한 구분이 없습니다. 가입한 사용자는 관리 기능 전체를 사용합니다.
+
+```bash
+# 허용 목록 교체 (전체 목록을 다시 지정)
+aws ssm put-parameter --profile ae-sentinel-v2 --region ap-northeast-2 \
+  --name /ae-sentinel/signup-allowed-emails --type String --overwrite \
+  --value 'a@example.com,b@example.com'
+```
 
 ---
 
